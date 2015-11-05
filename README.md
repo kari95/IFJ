@@ -1,3 +1,3 @@
 # IFJ
 
-private version: https://bitbucket.org/kari95/
+private version: https://bitbucket.org/kari95/ifj/
