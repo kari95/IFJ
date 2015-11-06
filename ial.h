@@ -14,13 +14,13 @@
 #ifndef IAL_H
 #define IAL_H
 
-// find in string 'string' substring 'find'
+// find in 'string' substring 'find'
 // returns position of first character of 'find' in 'string'
 // if 'string' is empty returns 0, if not found returns -1
 // implemented by Knuth-Morris-Pratt alhorithm
 int find(char *string, char *search);
 
-// sort characters in string 'string'
+// sort characters in 'string'
 // use Quick sort algorithm
 void sort(char *string);
 
