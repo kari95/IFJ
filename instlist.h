@@ -7,16 +7,27 @@
 *
 * 	author: 	Karolína Klepáčková (xklepa04)
 * 	created: 	2015-11-02
-* 	modified: 	2015-11-02
+* 	modified: 	2015-11-14
 *
 *****************************************************************************************/
 
 #ifndef INSTR_LIST_H
 #define INSTR_LIST_H
 
+// instructions
+typedef enum {
+	RETURN_I,
+	ADD_I,
+	SUB_I,
+	MUL_I,
+	DIV_I;
+} instType_T;
+
 // instruction structure (item of instructon list)
-typedef struct {
-	int type;
+typedef struct instruction {
+	struct instruction *left;
+	struct instruction *right;
+	instType_T type;
 	void *destination;
 	void *source1;
 	void *source2;
