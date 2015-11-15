@@ -22,7 +22,6 @@ void initIL(instrList_T *list)
 // destroy 'list' (free all alocated memory) 
 void destroiIL(instrList_T *list)
 {
-
   list->active 	= NULL;
   list->tail  	= NULL;
 
@@ -32,9 +31,7 @@ void destroiIL(instrList_T *list)
 	list->head 		  = pom->right;
 	free(list->head);
  }	
- 
   list->head = NULL;
-
 }
 
 // insert 'instruction' to 'list'
@@ -86,20 +83,14 @@ instruction_T pom = malloc(sizeof(struct instrList_T));
 	  	if (list->head == NULL)
 	  	list->head = pom;
 	 }
-
  return 0;
-
 }
 
 // returns pointer to active item from 'list'
 instruction_T *getActiveIL(instrList_T *list)
 {
-
  return list->active != NULL;
-
 }
-
-
 
 // move activity to next item (instruction) in 'list'
 void nextIL(instrList_T *list)
@@ -111,9 +102,7 @@ void nextIL(instrList_T *list)
 // move activity to nex item (instruction) in 'list'
 void startIL(instrList_T *list)
 {
-
  list->active = list->head;
-
 }
 
 /*void preInsertIL(instrList_T *list, instruction_T instruction);
