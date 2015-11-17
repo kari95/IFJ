@@ -7,7 +7,7 @@
 #
 #   author:     Miroslav Karásek (xkaras31)
 #   created:    2015-11-05
-#   modified:   2015-11-05
+#   modified:   2015-11-17
 #
 ##########################################################################################
 
@@ -40,9 +40,17 @@ interpret.o: interpret.c interpret.h instlist.h pointerstack.h ial.h
 ial.o: ial.c ial.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+test.o: test.c parser.h instlist.h interpret.h ial.h pointerstack.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
 
 # link
 ifj15: main.o instlist.o pointerstack.o parser.o interpret.o ial.o 
+	$(CC) $(CFLAGS) $? -o $@
+
+
+# link test
+test: test.o instlist.o pointerstack.o parser.o interpret.o ial.o 
 	$(CC) $(CFLAGS) $? -o $@
 
 

@@ -7,7 +7,7 @@
 *
 *   author:     Karolína Klepáčková (xklepa04)
 *   created:    2015-11-02
-*   modified:   2015-11-14
+*   modified:   2015-11-17
 *
 *****************************************************************************************/
 
@@ -65,7 +65,7 @@ typedef struct {
 void initIL(instList_T *list);
 
 // destroy 'list' (free all alocated memory) 
-void destroiIL(instList_T *list);
+void destroyIL(instList_T *list);
 
 // insert 'instruction' to 'list'
 int insertFirstIL(instList_T *list, instruction_T instruction);

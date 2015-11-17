@@ -7,7 +7,7 @@
 *
 * 	author: 	Karolína Klepáčková (xklepa04)
 * 	created: 	2015-10-30
-* 	modified: 	2015-10-30
+* 	modified: 	2015-11-17
 *
 *****************************************************************************************/
 
@@ -26,7 +26,7 @@ typedef enum {
 // struct to save token
 typedef struct {
 	int type;
-	double data;
+	void *data;
 } token_t;
 
 // read token from 'programFile'

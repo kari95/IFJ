@@ -7,7 +7,7 @@
 *
 *   author:     Karolína Klepáčková (xklepa04)
 *   created:    2015-11-14
-*   modified:   2015-11-15
+*   modified:   2015-11-17
 *
 *****************************************************************************************/
 #include <stdlib.h>
@@ -22,7 +22,7 @@ void initIL(instList_T *list)
 }
 
 // destroy 'list' (free all alocated memory) 
-void destroiIL(instList_T *list)
+void destroyIL(instList_T *list)
 {
     list->active  = NULL;
     list->tail    = NULL;
@@ -31,7 +31,7 @@ void destroiIL(instList_T *list)
     {
         instListItem_T *pom = list->head;
         list->head         = pom->right;
-        free(list->head);
+        free(pom);
     }  
     list->head = NULL;
 }
@@ -85,20 +85,23 @@ int insertLastIL(instList_T *list, instruction_T instruction)
 // returns pointer to active item from 'list'
 instruction_T *getActiveIL(instList_T *list)
 {
-    return &list->active->data;
+    if (list->active != NULL)
+        return &list->active->data;
+    else
+        return NULL;
 }
 
 // move activity to next item (instruction) in 'list'
 void nextIL(instList_T *list)
 {
- if (list->active != NULL)
+    if (list->active != NULL)
         list->active = list->active->right;
 }
 
 // move activity to nex item (instruction) in 'list'
 void startIL(instList_T *list)
 {
- list->active = list->head;
+    list->active = list->head;
 }
 
 /*void preInsertIL(instList_T *list, instListItem_T instruction);

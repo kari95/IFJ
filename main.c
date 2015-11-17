@@ -7,7 +7,7 @@
 *
 *   author:     Miroslav Karásek (xkaras31)
 *   created:    2015-10-30
-*   modified:   2015-11-05
+*   modified:   2015-11-17
 *
 *****************************************************************************************/
 
@@ -57,7 +57,7 @@ int main(int argc, char const **argv)
         returnCode = interpret(&instructionList);
 
     // destroy instruction list
-    destroiIL(&instructionList);
+    destroyIL(&instructionList);
 
     // closing program file
     if (fclose(programFile) == EOF)

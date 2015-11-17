@@ -8,7 +8,7 @@
 *   author:     Libor Janíček (xjanic21)
 *               Jakup Kolb (xkolbj00)
 *   created:    2015-10-30
-*   modified:   2015-11-16
+*   modified:   2015-11-17
 *
 *****************************************************************************************/
 
@@ -41,7 +41,7 @@ typedef enum {
 // symbol structure
 typedef struct {
     symbolType_T typ;
-    double data;
+    void *data; 
 } symbol_T;
 
 // symbol table item
