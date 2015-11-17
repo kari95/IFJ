@@ -21,15 +21,15 @@ typedef enum {
     DOUBLE_TO,
     STRING_TO,
 
-} tokenType;
+} tokenType_T;
 
 // struct to save token
 typedef struct {
-	int type;
+	tokenType_T type;
 	void *data;
-} token_t;
+} token_T;
 
 // read token from 'programFile'
-token_t getToken(FILE *programFile);
+token_T getToken(FILE *programFile);
 
 #endif 
