@@ -14,11 +14,22 @@
 #ifndef SCANNER_H
 #define SCANNER_H
 
+// types of token
+typedef enum {
+    ID_TO,
+    INT_TO,
+    DOUBLE_TO,
+    STRING_TO,
+
+} tokenType;
+
+// struct to save token
 typedef struct {
 	int type;
-	void *data;
+	double data;
 } token_t;
 
+// read token from 'programFile'
 token_t getToken(FILE *programFile);
 
 #endif 

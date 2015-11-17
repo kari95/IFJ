@@ -24,9 +24,25 @@ all: ifj15
 main.o: main.c parser.h instlist.h interpret.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+instlist.o: instlist.c instlist.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+pointerstack.o: pointerstack.c pointerstack.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+parser.o: parser.c parser.h instlist.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+
+interpret.o: interpret.c interpret.h instlist.h pointerstack.h ial.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+ial.o: ial.c ial.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
 
 # link
-ifj15: main.o
+ifj15: main.o instlist.o pointerstack.o parser.o interpret.o ial.o 
 	$(CC) $(CFLAGS) $? -o $@
 
 

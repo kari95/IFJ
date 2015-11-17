@@ -19,7 +19,7 @@
 int main(int argc, char const **argv)
 {
     FILE *programFile = NULL;
-    instrList_T instructionList;
+    instList_T instructionList;
 
     // opening program file
     if (argc == 2)

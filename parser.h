@@ -2,20 +2,20 @@
 * 
 * 	IFJ - interpret of IFJ15 language
 *
-* 	interpret module header
-* 	interpret internal code
+* 	parser module header
+* 	do a syntax analysis
 *
-* 	author: 	Libor Janíček (xjanic21)
+* 	author: 	Miroslav Karásek (xkaras31)
 * 	created: 	2015-10-30
-* 	modified: 	2015-11-02
+* 	modified: 	2015-10-30
 *
 *****************************************************************************************/
 
-#ifndef INTERPRET_H
-#define INTERPRET_H
+#ifndef PARSER_H
+#define PARSER_H
 
 #include "instlist.h"
 
-int interpret(instList_T *program);
+int parse(FILE *programFile, instList_T *program);
 
 #endif
