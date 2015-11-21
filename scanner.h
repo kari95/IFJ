@@ -23,7 +23,7 @@ typedef enum {
     CIN_TO,         // cin
     COUT_TO,        // cout
     RETURN_TO,      // return
-    if_TO,          // if
+    IF_TO,          // if
     ELSE_TO,        // else
     FOR_TO,         // for
     INT_TO,         // xxxxx
