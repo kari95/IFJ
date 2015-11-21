@@ -19,6 +19,13 @@
 // types of token
 typedef enum {
     ID_TO,          // identificator
+    TYPE_TO,        // int/double/string/auto
+    CIN_TO,         // cin
+    COUT_TO,        // cout
+    RETURN_TO,      // return
+    if_TO,          // if
+    ELSE_TO,        // else
+    FOR_TO,         // for
     INT_TO,         // xxxxx
     DOUBLE_TO,      // x.xxx
     STRING_TO,      // ""
@@ -39,6 +46,8 @@ typedef enum {
     L_TO,           // <
     GE_TO,          // >=
     LE_TO,          // <=
+    E_TO,           // ==
+    NE_TO,          // !=
     EOF_TO          // end of file
 } tokenType_T;
 
@@ -50,7 +59,7 @@ typedef struct {
         double doubleValue; // for DOUBLE_TO
         string_T *stringValue;  // for STRING_TO or ID_TO
     };
-    unsigned int column;    // position in source code (from 1)
+    unsigned int col;    // position in source code (from 1)
     unsigned int row;
 } token_T;
 
