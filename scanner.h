@@ -14,6 +14,8 @@
 #ifndef SCANNER_H
 #define SCANNER_H
 
+#include "string.h"
+
 // types of token
 typedef enum {
     ID_TO,          // identificator
@@ -42,12 +44,21 @@ typedef enum {
 
 // struct to save token
 typedef struct {
-	tokenType_T type;
-	void *data;
+	tokenType_T type;       // type of token
+	union {                 // union to save value of token
+        int intValue;       // for INT_TO
+        double doubleValue; // for DOUBLE_TO
+        string_T *stringValue;  // for STRING_TO or ID_TO
+    };
+    unsigned int column;    // position in source code (from 1)
+    unsigned int row;
 } token_T;
 
-// read token from 'programFile' to structure 'token'
+// init scanner an set 'programFile' as input file
+void initSC(FILE *programFile);
+
+// read token to structure 'token'
 // return zero if success
-int getToken(FILE *programFile, token_T *token);
+int getTokenSC(token_T *token);
 
 #endif 
