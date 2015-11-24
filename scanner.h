@@ -19,25 +19,9 @@
 // types of token
 typedef enum {
     ID_TO,          // identificator
-    TYPE_TO,        // int/double/string/auto
-    CIN_TO,         // cin
-    COUT_TO,        // cout
-    RETURN_TO,      // return
-    IF_TO,          // if
-    ELSE_TO,        // else
-    FOR_TO,         // for
     INT_TO,         // xxxxx
     DOUBLE_TO,      // x.xxx
     STRING_TO,      // ""
-    ASSIGN_TO,      // =
-    LBRACKET_TO,    // (
-    RBRACKET_TO,    // )  
-    SEMI_TO,        // ;
-    COMMA_TO,       // ,
-    LCBRACKET_TO,   // {
-    RCBRACKET_TO,   // }  
-    OUT_TO,         // <<
-    IN_TO,          // >>
     PLUS_TO,        // +
     MINUS_TO,       // -
     MUL_TO,         // *
@@ -48,7 +32,23 @@ typedef enum {
     LE_TO,          // <=
     E_TO,           // ==
     NE_TO,          // !=
-    EOF_TO          // end of file
+    LBRACKET_TO,    // (
+    RBRACKET_TO,    // ) 
+    SEMI_TO,        // ;
+    EOF_TO,         // end of file
+    TYPE_TO,        // int/double/string/auto
+    CIN_TO,         // cin
+    COUT_TO,        // cout
+    RETURN_TO,      // return
+    IF_TO,          // if
+    ELSE_TO,        // else
+    FOR_TO,         // for
+    ASSIGN_TO,      // = 
+    COMMA_TO,       // ,
+    LCBRACKET_TO,   // {
+    RCBRACKET_TO,   // }  
+    OUT_TO,         // <<
+    IN_TO           // >>
 } tokenType_T;
 
 // struct to save token
@@ -57,7 +57,7 @@ typedef struct {
 	union {                 // union to save value of token
         int intValue;       // for INT_TO
         double doubleValue; // for DOUBLE_TO
-        string_T *stringValue;  // for STRING_TO or ID_TO
+        char *stringValue;  // for STRING_TO or ID_TO
     };
     unsigned int col;    // position in source code (from 1)
     unsigned int row;

@@ -7,7 +7,7 @@
 *
 *   author:     Miroslav Karásek (xkaras31)
 *   created:    2015-11-17
-*   modified:   2015-11-17
+*   modified:   2015-11-22
 *
 *****************************************************************************************/
 
@@ -15,9 +15,18 @@
 #include <stdbool.h>
 #include "pointerstack.h"
 #include "instlist.h"
+#include "pointerstack.h"
 #include "scanner.h"
 #include "parser.h"
 #include "ial.h"
+
+typedef enum {
+    LEFT_PR,        // < 
+    RIGHT_PR,       // > 
+    EQUAL_PR,       // = 
+    SUCESS_PR,      // S
+    ERROR_PR,       // E
+} precedent_T;
 
 // table with functions
 static symbolTable_T functions;
@@ -584,7 +593,12 @@ bool nextInListLL()
 
 bool rvalLL()
 {
-    if (token.type == ID_TO) // == FID
+    if (token.type == ID_TO)
+    {
+        if (searchST(&functions, token.stringValue))
+            token.type = ID_TO - 1;
+    }
+    if (token.type == ID_TO - 1) // == FID
     {
         // RVAL -> fid ( CALL_PARAMETER_LIST )
         errorCode = getTokenSC(&token);
@@ -605,7 +619,7 @@ bool rvalLL()
         else
             syntaxError(&token);
     }
-    else if (token.type == SEMI_TO)
+    else if (token.type >= ID_TO && token.type <= RBRACKET_TO)
     {
         // RVAL -> EXPRESSION
         if (expression())
@@ -688,5 +702,122 @@ bool callParameterLL()
 
 bool expression()
 {
+    static precedent_T table[][17] = {
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, ERROR_PR, RIGHT_PR, RIGHT_PR}, // id
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, ERROR_PR, RIGHT_PR, RIGHT_PR}, // int
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, ERROR_PR, RIGHT_PR, RIGHT_PR}, // double
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, ERROR_PR, RIGHT_PR, RIGHT_PR}, // string
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},        // +
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},        // -
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},      // *
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},      // /
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // >
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // <
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // >=
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // <=
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // ==
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, LEFT_PR, RIGHT_PR, RIGHT_PR},          // !=
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, EQUAL_PR, ERROR_PR},                // (
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, RIGHT_PR, ERROR_PR, RIGHT_PR, RIGHT_PR}, // )
+        {ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR, ERROR_PR}, // ; ERROR
+        {LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, LEFT_PR, SUCESS_PR, SUCESS_PR}               // EOF
+    };
+    pointerStack_T stack;
+    pointerStack_T operandStack;
+    initPS(&stack);
+    initPS(&operandStack);
+
+    pushPS(&stack, (void *) EOF_TO);
+    pushPS(&operandStack, (void *) EOF_TO);
+
+    bool stop = false;
+    bool bracketSucess = false;
+    while (!stop)
+    {
+        //printf("%d %d\n", (int) topPS(&stack), (int) token.type);
+        if (token.type > EOF_TO)
+        {
+            syntaxError(&token);
+            break;
+        }
+        precedent_T action = table[(int) topPS(&stack)][(int) token.type];
+        if ((int) topPS(&stack) == EOF_TO && token.type == RBRACKET_TO)
+        {
+            if (bracketSucess) 
+                action = SUCESS_PR;
+            else 
+                action = ERROR_PR;
+        }
+        switch (action)
+        {
+            case LEFT_PR:   // <
+            {
+                if (token.type >= ID_TO && token.type <= STRING_TO)
+                {
+                    pushPS(&operandStack, (void *) token.type);
+                }
+                else if (token.type >= PLUS_TO && token.type <= RBRACKET_TO)
+                {
+                    pushPS(&stack, (void *) LEFT_PR);
+                    pushPS(&stack, (void *) token.type);
+                }
+                bracketSucess = true;
+                errorCode = getTokenSC(&token);
+                break;
+            }
+            case RIGHT_PR:  // >
+            {
+                int top;
+                while ((top = (int) topPS(&stack)) != LEFT_PR && top != EOF_TO)
+                {
+                    if (top >= PLUS_TO && top <= NE_TO)
+                    {
+                        if ((int)topPS(&operandStack) != EOF_TO)
+                            popPS(&operandStack);
+                        else
+                            syntaxError(&token);
+                        if ((int)topPS(&operandStack) != EOF_TO)
+                            popPS(&operandStack);
+                        else
+                            syntaxError(&token);
+                        pushPS(&operandStack, (void *) ID_TO);
+                    }
+                    popPS(&stack);
+                }
+                if (top == LEFT_PR)
+                    popPS(&stack);
+                break;
+            }
+            case EQUAL_PR:  // =
+            {
+                pushPS(&stack, (void *) token.type);
+                errorCode = getTokenSC(&token);
+                break;
+            }
+            case SUCESS_PR: // S
+            {
+                popPS(&operandStack);
+                if ((int) topPS(&stack) == EOF_TO && (int) topPS(&operandStack) == EOF_TO)
+                {
+                    stop = true;
+                }
+                else
+                {
+                    syntaxError(&token);
+                    stop = true;
+                }
+                break;
+            }
+            case ERROR_PR:  // E
+            {
+                stop = true;
+                syntaxError(&token);
+                break;
+            }
+        }
+    }
+
+    destroyPS(&stack);
+    destroyPS(&operandStack);
     return true;
 }
