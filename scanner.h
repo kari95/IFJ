@@ -14,6 +14,7 @@
 #ifndef SCANNER_H
 #define SCANNER_H
 
+#include <stdio.h>
 #include "string.h"
 
 // types of token
@@ -51,6 +52,13 @@ typedef enum {
     IN_TO           // >>
 } tokenType_T;
 
+typedef enum {
+    INT_TY,
+    DOUBLE_TY,
+    STRING_TY,
+    AUTO_TY
+} dataType_T;
+
 // struct to save token
 typedef struct {
 	tokenType_T type;       // type of token
@@ -58,6 +66,7 @@ typedef struct {
         int intValue;       // for INT_TO
         double doubleValue; // for DOUBLE_TO
         char *stringValue;  // for STRING_TO or ID_TO
+        dataType_T dataType;// for TYPE_TO
     };
     unsigned int col;    // position in source code (from 1)
     unsigned int row;
