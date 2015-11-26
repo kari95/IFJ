@@ -20,23 +20,25 @@ nerucim ze zde jsou vsude spravne pocty zavorek a ze se v tom nekdo vyzna
 kdyztak dejte echo zkusim na to jeste ve ctvrtek mrknout,ale asi spis az v patek
 */
 
-#ifndef SCANNER_H
-#define SCANNER_H
-
-
+#include <stdlib.h>
+#include <ctype.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include "scanner.h"
 #include "string.h"
 
-const char *reserved_words[10];
-reserved_words[0] = "int";
-reserved_words[1] = "double";
-reserved_words[2] = "string";
-reserved_words[3] = "auto";
-reserved_words[4] = "cin";
-reserved_words[5] = "cout";
-reserved_words[6] = "return";
-reserved_words[7] = "if";
-reserved_words[8] = "else";
-reserved_words[9] = "for";
+char reserved_words[10][7] = {
+    "int",
+    "double",
+    "string",
+    "auto",
+    "cin",
+    "cout",
+    "return",
+    "if",
+    "else",
+    "for",
+};
 
 enum
 {
@@ -62,7 +64,7 @@ OUT_S,
 G_GE_IN_S,
 GE_S
 
-}
+};
 
 FILE *inputFile;
 unsigned int global_column = 1;
@@ -73,29 +75,30 @@ int state = BEGIN_S;
 // init scanner an set 'programFile' as input file
 void initSC(FILE *programFile)
 {
- inputFile = programFile;
+    inputFile = programFile;
+    initS(&string);
 }
 
-void tokenInitialisation(tokenType_T type_of_token, unsigned int global_row, unsigned int global_column)
+void tokenInitialisation(token_T *token, tokenType_T type_of_token)
 {
-token.type = type_of_token;	
-token.row = global_row;
-token.column = global_column;
+token->type = type_of_token;	
+token->row = global_row;
+token->col = global_column;
 global_column++;
 }
 
-void alphanumerical (tokenType_T type_of_token, unsigned int global_row, unsigned int global_column)
+void alphanumerical (char sign, token_T *token, tokenType_T type_of_token)
 {
-	tokenInitialisation (type_of_token, global_row, global_column);
-	unget(sign, inputFile);
+	tokenInitialisation (token, type_of_token);
+	ungetc(sign, inputFile);
 }
-void blank (tokenType_T type_of_token, unsigned int global_row, unsigned int global_column)
+void blank (token_T *token, tokenType_T type_of_token)
 {
-	tokenInitialisation (type_of_token, global_row, global_column);
+	tokenInitialisation (token, type_of_token);
 	global_column++;
 }
 
-void end_of_row (unsigned int global_row, unsigned int global_column)
+void end_of_row ()
 {
 	global_row++;
     global_column = 1;
@@ -110,9 +113,10 @@ int getTokenSC(token_T *token)
 bool error = false ; // if smth goes wrong I should return error = 1 if it's bug of lexeme structure
 bool string_test = false;
 bool first_char = false;
+int local_column;
 tokenType_T type_of_token;
 int sign;
-cleanS (string);
+cleanS (&string);
 
 while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters from inputFile 
 {
@@ -128,32 +132,38 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 		 	else if (sign == '(')
 		 	{
 		 		type_of_token = LBRACKET_TO;
-		 		tokenInitialisation (type_of_token, global_row, global_column);
+		 		tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == ')')
 		 	{
 		 		type_of_token = RBRACKET_TO;
-				tokenInitialisation (type_of_token, global_row, global_column);
+				tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == ';')
 		 	{
 		 		type_of_token = SEMI_TO;
-		 		tokenInitialisation (type_of_token, global_row, global_column);
+		 		tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == ',')
 		 	{
 		 		type_of_token = COMMA_TO;
-		 		tokenInitialisation (type_of_token, global_row, global_column);
+		 		tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == '{')
 		 	{
 		 		type_of_token = LCBRACKET_TO;
-		 		tokenInitialisation (type_of_token, global_row, global_column);
+		 		tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == '}')
 		 	{
 			 	type_of_token = RCBRACKET_TO;
-		 		tokenInitialisation (type_of_token, global_row, global_column);
+		 		tokenInitialisation (token, type_of_token);
+                return 0;       
 		 	}
 		 	else if (sign == '<')/* could be just < or <= or << */
 		 	{
@@ -166,17 +176,20 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 		 	else if (sign == '+')
 		 	{
 				type_of_token = PLUS_TO;
-				tokenInitialisation (type_of_token, global_row, global_column);		 	
+				tokenInitialisation (token, type_of_token);	
+                return 0;	 	
 		 	}
 		 	else if (sign == '-')
 		 	{
 		 		type_of_token = MINUS_TO;
-				tokenInitialisation (type_of_token, global_row, global_column);		 	
+				tokenInitialisation (token, type_of_token);
+                return 0;       		 	
 		 	}
 		 	else if (sign == '*') /*  could it be in string or not? - should I solve it? and gloss with ending *  ???*/
 		 	{
 		 		type_of_token = DIV_TO;
-				tokenInitialisation (type_of_token, global_row, global_column);		 	
+				tokenInitialisation (token, type_of_token);	
+                return 0;       	 	
 		 	}
 		 	else if (sign == '/')  /*slash could be begining of gloss with * or /  or div   */
 		 	{	
@@ -202,39 +215,39 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 		 			error = true;
 		 	}
 		 	else if (sign == '\xdd') 
-				if (string_test == false)
-		 			error = true;
-		 		// asi  :D HEXADECIMAL_ESC_SEQ_S
-			/*  nacist prvni cislo -> prevod na cislo komkretni * 16 aby bylo hexadec ,
-			u cisel udelat cislo  '0'
-			u pismen asi pismeno - znak 'a'
-			nebo znak 'A' + asi 10 
- 		 	arbitrary hexadecimal value byte dd where dd means 01-FF letters could be a-f or A-F */
 		 	{
+                if (string_test == false)
+                    error = true;
+                // asi  :D HEXADECIMAL_ESC_SEQ_S
+            /*  nacist prvni cislo -> prevod na cislo komkretni * 16 aby bylo hexadec ,
+            u cisel udelat cislo  '0'
+            u pismen asi pismeno - znak 'a'
+            nebo znak 'A' + asi 10 
+            arbitrary hexadecimal value byte dd where dd means 01-FF letters could be a-f or A-F */
 		 	
 		 	}
 		 	else if (sign == '\n')  //  else sign could be written in 2 versions
 		 	{	
-		 		end_of_row (global_row, global_column);
+		 		end_of_row ();
 		 	}
 		 
 		 	else if (sign == '_')
 		 	{
 		 		first_char = true;
 		 		state = ID_S; 	
-		 		addCharacterS (string, sign);	/*  begining of identificator*/
+		 		addCharacterS (&string, sign);	/*  begining of identificator*/
 			}
 		 	else if (isalpha(sign))
 		 	{
 		 		first_char = true;
 		 		state = ID_S;
-		 		addCharacterS (string, sign);
+		 		addCharacterS (&string, sign);
 		 	}
 		 	else if (isdigit(sign))
 		 	{
 		 		first_char = true;
 		 		state = NUMBER_S;
-		 		addCharacterS (string, sign);
+		 		addCharacterS (&string, sign);
 		 	}
 		 	else if (isspace(sign))
 		 	{
@@ -262,17 +275,17 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 	if (isalnum(sign) || sign == '_')
 	{
 		global_column++;
-		addCharacterS (string, sign);
+		addCharacterS (&string, sign);
 		state = ID_S;
 	}
 	else 
 	{
 		
-		token->stringValue = string->data;  //ulozit string jako identifikator
+		token->stringValue = string.data;  //ulozit string jako identifikator
 
-		for (int i=0, i<10, i++)
+		for (int i=0; i<10; i++)
 		{
-			if (strcmp (string->data, reserved_words[i]) == 0) //are equal - testing for reserved words
+			if (strcmp (string.data, reserved_words[i]) == 0) //are equal - testing for reserved words
 			{
 				if (i == 0 || i == 1 || i == 2|| i == 3)
 					type_of_token = TYPE_TO;
@@ -308,9 +321,10 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 
 		}
 	
-		tokenInitialisation (type_of_token, global_row, local_column); //inicialization of token identificator
+		tokenInitialisation (token, type_of_token); //inicialization of token identificator
 		state = BEGIN_S;
-		unget(sign, inputFile);
+		ungetc(sign, inputFile);   
+        return 0;
 	}
 
 	first_char = false;
@@ -325,9 +339,11 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 
 	if (sign == '"')     // end of string
 	{
-		token->stringValue = string->data;
+		token->stringValue = string.data;
 		blank(global_row, local_column+1);
 		string_test = false;
+        state = BEGIN_S;
+        return 0;
 	}
 	else if (sign == '\\')  /* it means just one \ */
 	{
@@ -335,7 +351,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 	}
 	else
 	{
-		addCharacterS(string, sign);
+		addCharacterS(&string, sign);
     	state = STRING_S;
     }
     break;
@@ -344,19 +360,19 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     global_column++;
     if (sign == '\\') /* means \\ in our source code*/
     {
-    	addCharacterS(string, "\\")
+    	addCharacterS(&string, '\\');
     }
     else if (sign == '"')
     {
-    	addCharacterS (string, "\"");
+    	addCharacterS (&string, '\"');
     }
     else if (sign == 'n')
     {
-    	addCharacterS (string, '\n');
+    	addCharacterS (&string, '\n');
     }
     else if (sign == 't')
     {
-    	addCharacterS (string, '\t');
+    	addCharacterS (&string, '\t');
     }
     else if (sign == 'x') //hexadecimal code of escape sequence
     {
@@ -364,7 +380,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     }
     else
     {
-    	addCharacterS (string, sign)
+    	addCharacterS (&string, sign);
     }
     state = STRING_S;
     break;
@@ -383,24 +399,24 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     }
     if (sign == '.' || sign == 'e' || sign == 'E')
     {
-    	addCharacterS(string, sign);
+    	addCharacterS(&string, sign);
     	state = DOUBLE_S;
     	global_column++;
     }
     else if (isdigit(sign))
     {
-    	addCharacterS(string, sign);
+    	addCharacterS(&string, sign);
     	state = NUMBER_S;
     	global_column++;
     }
     else 
     {
     	int val_int = 0;
-    	val_int = atoi(string->data);
+    	val_int = atoi(string.data);
     	type_of_token = INT_TO;
-    	token.intValue = val_int;
-    	tokenInitialisation(type_of_token, global_row, local_column)
-    	unget(sign, inputFile);
+    	token->intValue = val_int;
+    	tokenInitialisation (token, type_of_token);
+    	ungetc(sign, inputFile);
     }
 
     first_char = false;
@@ -410,18 +426,18 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     case DOUBLE_S:      // x.xxx for double numbers
     if (isdigit(sign))
     {
-		addCharacterS(string, sign);
+		addCharacterS(&string, sign);
     	state = DOUBLE_S;
     	global_column++;
     }
     else //anything else than number 
     {
     	double val_double = 0;
-    	val_double = atof(string->data);
+    	val_double = atof(string.data);
     	type_of_token = DOUBLE_TO;
-    	token.doubleValue = val_double;
-    	tokenInitialisation(type_of_token, global_row, local_column)
-    	unget(sign, inputFile);
+    	token->doubleValue = val_double;
+    	tokenInitialisation (token, type_of_token);
+    	ungetc(sign, inputFile);
     }
 
     break;
@@ -440,16 +456,17 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     else if (isalnum(sign))
     {
 		type_of_token = NE_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
     }
     else if (isblank(sign))
     {
     	type_of_token = NE_TO;
-		blank (type_of_token, global_row, local_column);
+		blank (token, type_of_token);
+        return 0;
    	}
    	else if (sign == '\n')
    	{
-   		end_of_row (global_row, global_column);
+   		end_of_row ();
    	}
    	else
    		error = true;
@@ -459,7 +476,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     case ROW_COMMENT_S: // coment begining with //
     if (sign == '\n')
     {
-    	end_of_row (global_row, global_column); //needs next state as BEGIN_S
+    	end_of_row (); //needs next state as BEGIN_S
     }
     else
     {
@@ -522,16 +539,19 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     if (isalnum(sign))
     {
     	type_of_token = NE_TO;
-			alphanumerical (type_of_token, global_row, local_column);
+			alphanumerical (sign, token, type_of_token);
+        return 0;       
     }
     else if (isblank(sign))
     {
     	type_of_token = NE_TO;
-		blank (type_of_token, global_row, local_column);
+		blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
     	error = true;
@@ -552,15 +572,18 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     {
     	type_of_token = ASSIGN_TO;
 		alphanumerical (type_of_token, global_row, global_column);
+        return 0;
     }
     else if (isblank(sign)) //if nonprintable sign
     {
     	type_of_token = ASSIGN_TO;
-		blank (type_of_token, global_row, global_column);
+		blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else // if other operator 
     	error = true;
@@ -572,16 +595,19 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     if (isalnum (sign))
     {
     	type_of_token = E_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
+        return 0;
     }
     else if (isblank(sign))
     {
     	type_of_token = E_TO;
-    	blank (type_of_token, global_row, local_column);
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
         error = true;
@@ -600,7 +626,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     }
     else if (sign == '<')
     {
-    	state == OUT_S;
+    	state = OUT_S;
     	local_column = global_column;
     	global_column++;
     }
@@ -608,15 +634,18 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     {
     	type_of_token = L_TO;
     	alphanumerical (type_of_token, global_row, global_column);
+        return 0;
     }
     else if (isblank(sign))
     {	
-    	type_of_token = L_TO
-    	blank (type_of_token, global_row, global_column);
+    	type_of_token = L_TO;
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
     	error = true;
@@ -627,16 +656,19 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
      if (isalnum (sign))
     {
     	type_of_token = LE_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
+        return 0;
     }
     else if (isblank(sign))
     {
     	type_of_token = LE_TO;
-    	blank (type_of_token, global_row, local_column);
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
         error = true;
@@ -646,16 +678,19 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
      if (isalnum (sign))
     {
     	type_of_token = OUT_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
+        return 0;
     }
     else if (isblank(sign))
     {
     	type_of_token = OUT_TO;
-    	blank (type_of_token, global_row, local_column);
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-		end_of_row (global_row, global_column);
+		end_of_row ();
+        return 0;
     }
     else
         error = true;
@@ -674,7 +709,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     }
     else if (sign == '>')
     {
-    	state == IN_S;
+    	state = IN_S;
     	local_column = global_column;
     	global_column++;
     }
@@ -682,15 +717,18 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     {
     	type_of_token = G_TO;
     	alphanumerical (type_of_token, global_row, global_column);
+        return 0;
     }
     else if (isblank(sign))
     {
-    	type_of_token = G_TO
-    	blank (type_of_token, global_row, global_column);
+    	type_of_token = G_TO;
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
     	error = true;
@@ -700,17 +738,22 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 	case IN_S:          // >>
 	if (isalnum (sign))
     {
+        state = BEGIN_S;
     	type_of_token = IN_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
+        return 0;
     }
     else if (isblank(sign))
     {
+        state = BEGIN_S;
     	type_of_token = IN_TO;
-    	blank (type_of_token, global_row, local_column);
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
         error = true;
@@ -720,17 +763,22 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     case GE_S:          // >=
     if (isalnum (sign))
     {
+        state = BEGIN_S;
     	type_of_token = GE_TO;
-		alphanumerical (type_of_token, global_row, local_column);
+		alphanumerical (sign, token, type_of_token);
+        return 0;
     }
     else if (isblank(sign))
     {
+        state = BEGIN_S;
     	type_of_token = GE_TO;
-    	blank (type_of_token, global_row, local_column);
+    	blank (token, type_of_token);
+        return 0;
     }
     else if (sign == '\n')
     {
-    	end_of_row (global_row, global_column);
+    	end_of_row ();
+        return 0;
     }
     else
         error = true;
@@ -738,24 +786,22 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 
 
 /************************	END OF CASES	************************************/
-  }
 
 
 
 }
   else if (sign == EOF)  /*end of file   */
-  		 {
-		 	type_of_token = EOF_TO;
-			tokenInitialisation (type_of_token, global_row, global_column);		 	 
-		 }
+         {
+            type_of_token = EOF_TO;
+            tokenInitialisation (token, type_of_token);          
+         }
 
-return 0;
+  }
 }
 if (error == true)
 	return 1;
-
-#endif 
-
+return 0;
+}
 
 /*
 isspace OR isblank ???
