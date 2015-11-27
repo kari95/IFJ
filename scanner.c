@@ -46,6 +46,7 @@ ID_S,
 STRING_S,
 ESCAPE_SEQUENCE_S,
 HEXADECIMAL_ESC_SEQ_S,
+HEXADECIMAL_SECOND_S,
 NUMBER_S,
 DOUBLE_S,
 DIV_S,
@@ -68,14 +69,17 @@ GE_S
 FILE *inputFile;
 unsigned int global_column = 1;
 unsigned int global_row = 1;
-string_T string;
+string_T string, hexadecimal_string;
 int state = BEGIN_S;
+int first = 0;
+int second = 0;
 
 // init scanner an set 'programFile' as input file
 void initSC(FILE *programFile)
 {
     inputFile = programFile;
     initS(&string);
+    initS(&hexadecimal_string);
 }
 
 void tokenInitialisation(token_T *token, tokenType_T type_of_token)
@@ -114,19 +118,23 @@ bool string_test = false;
 bool first_char = false;
 int local_column;
 tokenType_T type_of_token;
-int sign;
+int sign, hexa;
 cleanS (&string);
+
 
 while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters from inputFile 
 {
-    if (sign == EOF)  /*end of file   */
+  
+if (sign == EOF)  /*end of file   */
     {
         type_of_token = EOF_TO;
         tokenInitialisation (token, type_of_token);  
+        error = true;
         return 0;        
     }
   switch (state)
   {
+  		
 	  case BEGIN_S:    //begining state of automata
 			if (sign == '=') //could be assign = or equal ==
 		 	{
@@ -225,12 +233,6 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 		 	{
                 if (string_test == false)
                     error = true;
-                // asi  :D HEXADECIMAL_ESC_SEQ_S
-            /*  nacist prvni cislo -> prevod na cislo komkretni * 16 aby bylo hexadec ,
-            u cisel udelat cislo  '0'
-            u pismen asi pismeno - znak 'a'
-            nebo znak 'A' + asi 10 
-            arbitrary hexadecimal value byte dd where dd means 01-FF letters could be a-f or A-F */
 		 	
 		 	}
 		 	else if (sign == '\n')  //  else sign could be written in 2 versions
@@ -385,7 +387,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 	}
 	else
 	{
-		//printf("%c\n", sign);
+		
 		addCharacterS(&string, sign);
     	state = STRING_S;
     }
@@ -410,8 +412,10 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     	addCharacterS (&string, '\t');
     }
     else if (sign == 'x') //hexadecimal code of escape sequence
-    {
+    {	
     	state = HEXADECIMAL_ESC_SEQ_S;
+    	break;
+
     }
     else
     {
@@ -420,12 +424,97 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
     state = STRING_S;
     break;
 
-    case HEXADECIMAL_ESC_SEQ_S: //for hexadecimal number od escape sequence                       **********NOT YET   *  HEXADECIMAL ESC SEQ*********
+    case HEXADECIMAL_ESC_SEQ_S: //for hexadecimal number or escape sequence                       **********NOT YET   *  HEXADECIMAL ESC SEQ*********
+    
+    if (isdigit(sign)) // digit 
+    {	//printf("dve\n");
+    	addCharacterS (&hexadecimal_string, sign);
+    	first = hexadecimal_string.data[0]- '0';
+    	state = HEXADECIMAL_SECOND_S;
+    	break;
+    }
+    else if (sign >= 'A' && sign <= 'F') //A-F
+    {	//printf("XY\n");
+    	addCharacterS (&hexadecimal_string, sign);
+    	first =  hexadecimal_string.data[0]-'A';
+    	state = HEXADECIMAL_SECOND_S;
+    	break;
+    }
+    else if (sign >= 'a' && sign <= 'f') //a-f
+    {
+    	addCharacterS (&hexadecimal_string, sign);
+    	first =  hexadecimal_string.data[0]- 'a';
+    	state = HEXADECIMAL_SECOND_S;
+    	break;
+    }
+    else
+    	error = 1;
     global_column++;
+    state = STRING_S;
+    cleanS (&hexadecimal_string);
+	hexa = 0;
     //nacitam dokud neni konec toho hexadec cisla
+    break;
+//addCharacterS (&string, char);
+
+    case HEXADECIMAL_SECOND_S:
+    global_column++;
+    
+    if (sign >= 'A' && sign <= 'F')
+    {//printf("aha\n");
+    	addCharacterS(&hexadecimal_string, sign);
+    	second =  hexadecimal_string.data[1]-'A';
+    	hexa = first*16+second;
+
+    	addCharacterS(&string, hexa);
+    	cleanS (&hexadecimal_string);
+		hexa = 0;
+		//break;
+    }
+    else if (sign >= 'a' && sign <= 'f')
+    {
+    	addCharacterS(&hexadecimal_string, sign);
+    	second =  hexadecimal_string.data[1]- 'a';
+    	hexa = first*16+second;
+    	addCharacterS(&string, hexa);
+    	cleanS (&hexadecimal_string);
+		hexa = 0;
+    	//break;
+    }
+
+    else if (isdigit(sign))
+    {
+    	addCharacterS(&hexadecimal_string, sign);
+    	second =  hexadecimal_string.data[1]- '0';
+    	hexa = first*16+second;
+    	addCharacterS(&string, hexa);
+    	cleanS (&hexadecimal_string);
+		hexa = 0;
+    //	break;
+    }
+    else
+    	error = 1;
+    state = STRING_S;
+    cleanS (&hexadecimal_string);
+	hexa = 0;
+
     break;
 
 
+   
+
+   /* case HEXADECIMAL_TEST:
+    if (isdigit(sign) || sign >= 97 && sign <= 102 ||  sign >= 65 && sign <= 70 )
+    {
+    	error = 1;
+    }
+    else
+    {
+
+    	//prevod
+    }
+
+    break;*/
     case NUMBER_S: //case for convertion from string to int/double number
     if (first_char)
     {
@@ -852,9 +941,10 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 
 
 
+}
 
 
-  }
+ 
 }
 if (error == true)
 	return 1;
