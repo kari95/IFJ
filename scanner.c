@@ -119,10 +119,14 @@ cleanS (&string);
 
 while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters from inputFile 
 {
+    if (sign == EOF)  /*end of file   */
+    {
+        type_of_token = EOF_TO;
+        tokenInitialisation (token, type_of_token);  
+        return 0;        
+    }
   switch (state)
   {
-  	if (sign != EOF)
-	{
 	  case BEGIN_S:    //begining state of automata
 			if (sign == '=') //could be assign = or equal ==
 		 	{
@@ -848,12 +852,7 @@ while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters
 
 
 
-}
-  else if (sign == EOF)  /*end of file   */
-         {
-            type_of_token = EOF_TO;
-            tokenInitialisation (token, type_of_token);          
-         }
+
 
   }
 }
