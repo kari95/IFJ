@@ -14,10 +14,18 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "ial.h"
 #include "instlist.h"
 #include "scanner.h"
 
+// struc of {} block
+typedef struct block {
+    struct block *parrent;
+    symbolTable_T symbols;
+    instList_T program;
+} block_T;
+
 // parse 'programFile' an generate list of instructions 'program'
-int parse(FILE *programFile, instList_T *program);
+int parse(FILE *programFile, block_T *block);
 
 #endif

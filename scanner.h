@@ -23,37 +23,37 @@ typedef enum {
     INT_TO,         // xxxxx
     DOUBLE_TO,      // x.xxx
     STRING_TO,      // ""
-    PLUS_TO,        // +
-    MINUS_TO,       // -
+    PLUS_TO,        // + 
+    MINUS_TO,       // - 5
     MUL_TO,         // *
     DIV_TO,         // /
     G_TO,           // >
-    L_TO,           // <
-    GE_TO,          // >=
+    L_TO,           // < 
+    GE_TO,          // >= 10
     LE_TO,          // <=
     E_TO,           // ==
     NE_TO,          // !=
     LBRACKET_TO,    // (
-    RBRACKET_TO,    // ) 
+    RBRACKET_TO,    // ) 15
     SEMI_TO,        // ;
     EOF_TO,         // end of file
     TYPE_TO,        // int/double/string/auto
     CIN_TO,         // cin
-    COUT_TO,        // cout
+    COUT_TO,        // cout 21
     RETURN_TO,      // return
     IF_TO,          // if
     ELSE_TO,        // else
     FOR_TO,         // for
-    ASSIGN_TO,      // = 
+    ASSIGN_TO,      // = 25
     COMMA_TO,       // ,
     LCBRACKET_TO,   // {
     RCBRACKET_TO,   // }  
-    OUT_TO,         // <<
-    IN_TO           // >>
+    OUT_TO,         // << 
+    IN_TO           // >> 30
 } tokenType_T;
 
 typedef enum {
-    INT_TY,
+    INT_TY = INT_TO,
     DOUBLE_TY,
     STRING_TY,
     AUTO_TY

@@ -19,6 +19,7 @@ void initIL(instList_T *list)
     list->head    = NULL;
     list->tail    = NULL;
     list->active  = NULL;
+    list->count   = 0;
 }
 
 // destroy 'list' (free all alocated memory) 
@@ -55,6 +56,7 @@ int insertFirstIL(instList_T *list, instruction_T instruction)
 
         if (list->tail == NULL)
         list->tail = pom;
+        list->count++;
     }
 
     return 0;
@@ -78,6 +80,7 @@ int insertLastIL(instList_T *list, instruction_T instruction)
 
         if (list->head == NULL)
         list->head = pom;
+        list->count++;
     }
     return 0;
 }
@@ -102,6 +105,16 @@ void nextIL(instList_T *list)
 void startIL(instList_T *list)
 {
     list->active = list->head;
+}
+
+instruction_T *getNextIL(instList_T *list, instruction_T *instruction)
+{
+    if (instruction)
+    {
+        return ((instListItem_T *) instruction)->right;
+    }
+    else
+        return &list->head->data;
 }
 
 /*void preInsertIL(instList_T *list, instListItem_T instruction);

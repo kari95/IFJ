@@ -19,7 +19,7 @@
 int main(int argc, char const **argv)
 {
     FILE *programFile = NULL;
-    instList_T instructionList;
+    block_T mainBlock;
 
     // opening program file
     if (argc == 2)
@@ -43,30 +43,24 @@ int main(int argc, char const **argv)
     }
 
     // will be set to nonezero value if some fails
-    int returnCode = 0;
-
-    // initialization of instruction list
-    initIL(&instructionList);
+    int errorCode = 0;
 
     // parse program and generate instructions
-    if (returnCode == 0)
-        returnCode = parse(programFile, &instructionList);
+    if (errorCode == 0)
+        errorCode = parse(programFile, &mainBlock);
 
     // interpret code
-    if (returnCode == 0)
-        returnCode = interpret(&instructionList);
-
-    // destroy instruction list
-    destroyIL(&instructionList);
+    if (errorCode == 0)
+        errorCode = interpret(&mainBlock);
 
     // closing program file
     if (fclose(programFile) == EOF)
     {
         fprintf(stderr, "Error when closing '%s'\n", argv[1]);
-        if (returnCode == 0)
-            returnCode = 99;
+        if (errorCode == 0)
+            errorCode = 99;
     }
 
     // if some operation fails return code is not 0
-    return returnCode;
+    return errorCode;
 }

@@ -15,7 +15,8 @@
 #define INTERPRET_H
 
 #include "instlist.h"
+#include "parser.h"
 
-int interpret(instList_T *program);
+int interpret(block_T *block);
 
 #endif

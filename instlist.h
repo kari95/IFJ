@@ -14,27 +14,36 @@
 #ifndef INSTR_LIST_H
 #define INSTR_LIST_H
 
+#include "scanner.h"
+
 // instructions
 typedef enum {
-    ADD_I,      // +        
+    ADD_I = PLUS_TO,      // +        
     SUB_I,      // -
     MUL_I,      // *
     DIV_I,      // /
-    EQ_I,       // ==
-    NEQ_I,      // !=
     G_I,        // >
     L_I,        // <
-    GE_I,       // >=
+    GE_I,       // >= 10
     LE_I,       // <=
+    EQ_I,       // ==
+    NEQ_I,      // !=
+    ASSIGN_I,   // =
+    PRINT_I,    // printf() 
+    SCAN_I,     // scanf()
     LENGTH_I,   // length()
     SORT_I,     // sort()
     FIND_I,     // find()
     CONCAT_I,   // concat()
     SUBSTRING_I,// substring()
-    PRINT_I,    // printf()
-    SCAN_I,     // scanf()
-    JUMP_I,     // jump
-    IF_JUMP_I,  // if ( E ) jump
+    JUMP_START_I,     // jump
+    IF_I,       // if
+    IF_NOT_BREAK_I, // if break
+    FOR_I,      // for 
+    SET_PARAMETR_I,
+    NEW_FRAME_I,
+    DEL_FRAME_I,
+    BLOCK_I,    // block 
     CALL_I,     // call 
     RETURN_I,   // return   
 } instType_T;
@@ -49,9 +58,9 @@ typedef struct {
 
 // item of instruction list
 typedef struct instListItem {
+    instruction_T data;
     struct instListItem *left;
     struct instListItem *right;
-    instruction_T data;
 } instListItem_T;
 
 // structure of instruction list
@@ -59,6 +68,7 @@ typedef struct {
     instListItem_T *head;
     instListItem_T *tail;
     instListItem_T *active;
+    unsigned int count;
 } instList_T;
 
 // init 'list'
@@ -84,5 +94,7 @@ void nextIL(instList_T *list);
 
 // returns pointer to active item from 'list'
 instruction_T *getActiveIL(instList_T *list);
+
+instruction_T *getNextIL(instList_T *list, instruction_T *instruction);
 
 #endif

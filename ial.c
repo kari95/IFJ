@@ -43,6 +43,8 @@ void initST(symbolTable_T *table)
 {
     for (int i = 0; i < SYMBOL_TABLE_SIZE; ++i)
         table->items[i] = NULL;
+    table->count = 0;
+    table->parrent = NULL;
 }
 
 // destroy 'table' and free all alocated memory
@@ -54,6 +56,8 @@ void destroyST(symbolTable_T *table)
             free(item);
         table->items[i] = NULL;
     }
+    table->count = 0;
+    table->parrent = NULL;
 }
 
 // search in 'table' by the 'key'
@@ -66,28 +70,40 @@ symbol_T *searchST(symbolTable_T *table, char *key)
         if (strcmp(key, item->key) == 0)
             return &item->data;
     }
+    if (table->parrent) 
+    {
+        // search in parrent table
+        return searchST(table->parrent, key);
+    }
     return NULL;
 }
 
 // insert in to 'table' item with 'data' and 'key'
 // if 'key' exist, will be 'data' updated
-// return zero if sucess
-int insertST(symbolTable_T *table, char *key, symbol_T data)
+// return NULL if fail
+symbol_T *insertST(symbolTable_T *table, char *key, symbol_T data)
 {
     int hash = hashFunction(key);
-    symbol_T *itemData = searchST(table, key);
+    symbol_T *itemData = NULL;
+    for (symbolTableItem_T *item = table->items[hash]; item != NULL; item = item->next)
+    {
+        if (strcmp(key, item->key) == 0)
+            itemData = &item->data;
+    }
+    symbolTableItem_T *item;
     if (itemData == NULL)
     {
-        symbolTableItem_T *item = malloc(sizeof(symbolTableItem_T) + strlen(key));
+        item = malloc(sizeof(symbolTableItem_T) + strlen(key) + 1);
         if (item == NULL) 
-            return 99;
+            return NULL;
         strcpy(item->key, key);
         item->data = data;
         item->next = table->items[hash];
         table->items[hash] = item;
+        table->count++;
     }
     else
         *itemData = data;
-    return 0;
+    return &item->data;
 }
 

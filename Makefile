@@ -13,7 +13,7 @@
 
 # compiler options
 CC=gcc
-CFLAGS=-O2 -std=c99 -pedantic -Wall -Wextra -g
+CFLAGS=-O2 -std=c11 -pedantic -Wall -Wextra -g
 
 
 # all
@@ -21,36 +21,35 @@ all: ifj15
 
 
 # modules compilation
-main.o: main.c parser.h instlist.h interpret.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
 instlist.o: instlist.c instlist.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 pointerstack.o: pointerstack.c pointerstack.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-parser.o: parser.c parser.h instlist.h
+parser.o: parser.c parser.h instlist.h scanner.h string.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+scanner.o: scanner.c scanner.h string.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 interpret.o: interpret.c interpret.h instlist.h pointerstack.h ial.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+string.o: string.c string.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 ial.o: ial.c ial.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-test.o: test.c parser.h instlist.h interpret.h ial.h pointerstack.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
 
 # link
-ifj15: main.o instlist.o pointerstack.o parser.o interpret.o ial.o 
+ifj15: main.c scanner.o instlist.o pointerstack.o interpret.o string.o ial.o parser.o
 	$(CC) $(CFLAGS) $? -o $@
 
 
 # link test
-test: test.o instlist.o pointerstack.o parser.o interpret.o ial.o 
+test: test.c instlist.o pointerstack.o parser.o scanner.o interpret.o string.o ial.o 
 	$(CC) $(CFLAGS) $? -o $@
 
 
