@@ -107,7 +107,8 @@ int parse(FILE *programFile, block_T *block)
     allocBlock(block);
 
     // insert main function to table of functions
-    insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, block});
+    symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, NULL});
+    function->data = block;
 
     initPS(&constants);
 
@@ -190,7 +191,7 @@ bool functionLL()
                                         off2 = (int) ((symbol_T *)instr->source1)->data;
                                     if (instr->source2)
                                         off3 = (int) ((symbol_T *)instr->source2)->data;
-                                    //printf("%d %d %d %d\n", instr->type, off1, off2, off3);
+                                    printf("%d %d %d %d\n", instr->type, off1, off2, off3);
                                 }
                                 nextIL(&((block_T *) function->data)->program);
                             }
@@ -303,7 +304,7 @@ bool fBlockLL(symbol_T *function)
         block_T *block = function->data;
         if (blockLL(block))
         {
-            insertLastIL(&block->program, (instruction_T){DEL_FRAME_I, NULL, NULL, NULL});
+            insertLastIL(&block->program, (instruction_T){RETURN_I, NULL, NULL, NULL});
             return true;
         }
     }
@@ -1039,11 +1040,11 @@ bool expression(block_T *block, void **value)
                         newInstruction.type = top;
                         symbol_T *source1;
                         symbol_T *source2;
-                        if ((source1 = topPS(&operandStack)) != EOF_TO)
+                        if ((source2 = topPS(&operandStack)) != EOF_TO)
                             popPS(&operandStack);
                         else
                             syntaxError(&token);
-                        if ((source2 = topPS(&operandStack)) != EOF_TO)
+                        if ((source1 = topPS(&operandStack)) != EOF_TO)
                             popPS(&operandStack);
                         else
                             syntaxError(&token);

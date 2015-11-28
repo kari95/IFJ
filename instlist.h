@@ -34,7 +34,7 @@ typedef enum {
     LENGTH_I,   // length()
     SORT_I,     // sort()
     FIND_I,     // find()
-    CONCAT_I,   // concat()
+    CONCAT_I,   // concat()20
     SUBSTRING_I,// substring()
     JUMP_START_I,     // jump
     IF_I,       // if
@@ -44,7 +44,7 @@ typedef enum {
     NEW_FRAME_I,
     DEL_FRAME_I,
     BLOCK_I,    // block 
-    CALL_I,     // call 
+    CALL_I,     // call 30
     RETURN_I,   // return   
 } instType_T;
 

@@ -14,44 +14,16 @@
 # compiler options
 CC=gcc
 CFLAGS=-O2 -std=c11 -pedantic -Wall -Wextra -g
-
-
-# all
-all: ifj15
-
+DEPS = scanner.h instlist.h pointerstack.h interpret.h string.h ial.h parser.h
+OBJ = main.o parser.o interpret.o scanner.o instlist.o pointerstack.o string.o ial.o
 
 # modules compilation
-instlist.o: instlist.c instlist.h
+%.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-pointerstack.o: pointerstack.c pointerstack.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-parser.o: parser.c parser.h instlist.h scanner.h string.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-scanner.o: scanner.c scanner.h string.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-interpret.o: interpret.c interpret.h instlist.h pointerstack.h ial.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-string.o: string.c string.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-ial.o: ial.c ial.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
 
 # link
-ifj15: main.c scanner.o instlist.o pointerstack.o interpret.o string.o ial.o parser.o
+ifj15: $(OBJ)
 	$(CC) $(CFLAGS) $? -o $@
-
-
-# link test
-test: test.c instlist.o pointerstack.o parser.o scanner.o interpret.o string.o ial.o 
-	$(CC) $(CFLAGS) $? -o $@
-
 
 # clean
 clean: 

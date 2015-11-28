@@ -72,7 +72,6 @@ int insertLastIL(instList_T *list, instruction_T instruction)
         pom->right  = NULL;
         pom->left   = list->tail;
         pom->data   = instruction;
-
         if (list->tail != NULL)
             list->tail->right = pom;
         
