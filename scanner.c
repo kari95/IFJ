@@ -352,6 +352,7 @@ if (sign == EOF)  /*end of file   */
 			else
 			{
 				type_of_token = ID_TO; //if it's not reserved word
+				state = BEGIN_S;
 			}
 
 		}
@@ -419,6 +420,7 @@ if (sign == EOF)  /*end of file   */
     }
     else
     {
+    	addCharacterS (&string, '\\');
     	addCharacterS (&string, sign);
     }
     state = STRING_S;
@@ -429,21 +431,25 @@ if (sign == EOF)  /*end of file   */
     if (isdigit(sign)) // digit 
     {	//printf("dve\n");
     	addCharacterS (&hexadecimal_string, sign);
-    	first = hexadecimal_string.data[0]- '0';
+    	first = (hexadecimal_string.data[0]- '0')*16;
+    	printf(" %d HODNOTA 1\n", first);
     	state = HEXADECIMAL_SECOND_S;
     	break;
     }
     else if (sign >= 'A' && sign <= 'F') //A-F
     {	//printf("XY\n");
     	addCharacterS (&hexadecimal_string, sign);
-    	first =  hexadecimal_string.data[0]-'A';
+    	first =  (hexadecimal_string.data[0]-'0'-7)*16;
+    	printf(" %d HODNOTA 2\n", first);
     	state = HEXADECIMAL_SECOND_S;
+
     	break;
     }
     else if (sign >= 'a' && sign <= 'f') //a-f
     {
     	addCharacterS (&hexadecimal_string, sign);
-    	first =  hexadecimal_string.data[0]- 'a';
+    	first =  (hexadecimal_string.data[0]- '0'-39)*16;
+    	printf(" %d HODNOTA 3\n", first);
     	state = HEXADECIMAL_SECOND_S;
     	break;
     }
@@ -453,9 +459,7 @@ if (sign == EOF)  /*end of file   */
     state = STRING_S;
     cleanS (&hexadecimal_string);
 	hexa = 0;
-    //nacitam dokud neni konec toho hexadec cisla
     break;
-//addCharacterS (&string, char);
 
     case HEXADECIMAL_SECOND_S:
     global_column++;
@@ -463,10 +467,12 @@ if (sign == EOF)  /*end of file   */
     if (sign >= 'A' && sign <= 'F')
     {//printf("aha\n");
     	addCharacterS(&hexadecimal_string, sign);
-    	second =  hexadecimal_string.data[1]-'A';
-    	hexa = first*16+second;
+    	//second = atoi(hexadecimal_string.data);
+    	second =  (hexadecimal_string.data[1]-'0'-7)+first;
+    	printf(" %d HODNOTA 4\n", second);
+    	//hexa = first*16+second;
 
-    	addCharacterS(&string, hexa);
+    	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
 		//break;
@@ -474,9 +480,10 @@ if (sign == EOF)  /*end of file   */
     else if (sign >= 'a' && sign <= 'f')
     {
     	addCharacterS(&hexadecimal_string, sign);
-    	second =  hexadecimal_string.data[1]- 'a';
-    	hexa = first*16+second;
-    	addCharacterS(&string, hexa);
+    	second =  (hexadecimal_string.data[1]- '0'-39)+first;
+    	printf(" %d HODNOTA 5\n", second);
+    	//hexa = first*16+second;
+    	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
     	//break;
@@ -485,9 +492,10 @@ if (sign == EOF)  /*end of file   */
     else if (isdigit(sign))
     {
     	addCharacterS(&hexadecimal_string, sign);
-    	second =  hexadecimal_string.data[1]- '0';
-    	hexa = first*16+second;
-    	addCharacterS(&string, hexa);
+    	second =  (hexadecimal_string.data[1]- '0')+first;
+    	printf(" %d HODNOTA 6\n", second);
+    	//hexa = first*16+second;
+    	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
     //	break;
@@ -501,20 +509,6 @@ if (sign == EOF)  /*end of file   */
     break;
 
 
-   
-
-   /* case HEXADECIMAL_TEST:
-    if (isdigit(sign) || sign >= 97 && sign <= 102 ||  sign >= 65 && sign <= 70 )
-    {
-    	error = 1;
-    }
-    else
-    {
-
-    	//prevod
-    }
-
-    break;*/
     case NUMBER_S: //case for convertion from string to int/double number
     if (first_char)
     {
@@ -717,11 +711,11 @@ if (sign == EOF)  /*end of file   */
         state = BEGIN_S;
         return 0;
     }
-   /* else if (sign == '\n')
+   else if (sign == '\n')
     {
     	end_of_row ();
         return 0;
-    }*/
+    }
     else // if other operator 
     	error = true;
     break;
