@@ -217,8 +217,8 @@ if (sign == EOF)  /*end of file   */
 		 	}
 		 	else if (sign == '\t')  /* horizontal tab just one sign */
 		 	{
-		 		if (string_test == false)
-		 			error = true;
+		 	    global_column++;
+                state = BEGIN_S;
 		 	}
 		 	else if (sign == '\xdd') 
 		 	{
@@ -250,7 +250,7 @@ if (sign == EOF)  /*end of file   */
 		 		state = NUMBER_S;
 		 		addCharacterS (&string, sign);
 		 	}
-		 	else if (isspace(sign))
+		 	else if (isblank(sign) || sign == '\t')
 		 	{
 		 		state = BEGIN_S;
 		 		global_column++;
@@ -642,7 +642,7 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;       
     }
-    else if (isblank(sign) || sign == '"')
+    else if (isspace(sign) || sign == '"' || sign == '\t')
     {
         ungetc(sign, inputFile);
     	type_of_token = NE_TO;
