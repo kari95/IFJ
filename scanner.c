@@ -11,14 +11,6 @@
 *
 *****************************************************************************************/
 
-/*
-NEDODELANE - dorozliseni typu TYPE_TO - implementace reseni identifikatoru/rezervovanych slov v ID_S - podle toho co je to za "IDENTIFIKATOR"
-hexadecimal escape sequence -> v STRING_S -> HEXADECIMAL... _S + v BEGIN_S to neni dodelane co tam volat
-
-
-STRING _ SMAZAT VYPISY
-*/
-
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -63,7 +55,6 @@ IN_S,
 OUT_S,
 G_GE_IN_S,
 GE_S
-
 };
 
 FILE *inputFile;
@@ -108,6 +99,7 @@ void end_of_row ()
     state = BEGIN_S; 
 }
 
+
 // write token to structure 'token'
 // return zero if success
 //gets values into 'token' structure
@@ -124,19 +116,18 @@ cleanS (&string);
 
 while ((error == false ) && (sign = fgetc (inputFile))) // fgetc gets characters from inputFile 
 {
-  
+
 if (sign == EOF)  /*end of file   */
     {
-        type_of_token = EOF_TO;
-        tokenInitialisation (token, type_of_token);  
-        error = true;
-        return 0;        
+            type_of_token = EOF_TO;
+            tokenInitialisation (token, type_of_token);  
+            error = true;
+            return 0; 
     }
   switch (state)
   {
-  		
 	  case BEGIN_S:    //begining state of automata
-			if (sign == '=') //could be assign = or equal ==
+        	if (sign == '=') //could be assign = or equal ==
 		 	{
 		 		state = ASSIGN_OR_EQUAL_S;
 		 	}
@@ -198,7 +189,7 @@ if (sign == EOF)  /*end of file   */
 		 	}
 		 	else if (sign == '*') /*  could it be in string or not? - should I solve it? and gloss with ending *  ???*/
 		 	{
-		 		type_of_token = DIV_TO;
+		 		type_of_token = MUL_TO;
 				tokenInitialisation (token, type_of_token);	
                 return 0;       	 	
 		 	}
@@ -238,6 +229,7 @@ if (sign == EOF)  /*end of file   */
 		 	else if (sign == '\n')  //  else sign could be written in 2 versions
 		 	{	
 		 		end_of_row ();
+                state = BEGIN_S;
 		 	}
 		 
 		 	else if (sign == '_')
@@ -265,11 +257,7 @@ if (sign == EOF)  /*end of file   */
 		 	}
 			
 	  break;
-
-
 	/***************************************************** end of BEGIN_S	*****************************************************/
-
-
 	case ID_S:          // identificator
 						//necessary to copmare if ID isn't any of reserved words
 	if (first_char)
@@ -290,7 +278,6 @@ if (sign == EOF)  /*end of file   */
 
 		for (int i=0; i<10; i++)
 		{
-			//printf("%s %s\n", string.data, reserved_words[i]);
 			if (strcmp (string.data, reserved_words[i]) == 0) //are equal - testing for reserved words
 			{
 				if (i == 0 )
@@ -354,9 +341,7 @@ if (sign == EOF)  /*end of file   */
 				type_of_token = ID_TO; //if it's not reserved word
 				state = BEGIN_S;
 			}
-
 		}
-	
 		tokenInitialisation (token, type_of_token); //inicialization of token identificator
 		state = BEGIN_S;
 		ungetc(sign, inputFile);   
@@ -375,11 +360,10 @@ if (sign == EOF)  /*end of file   */
 
 	if (sign == '"')     // end of string
 	{
-		token->stringValue = string.data;
+		state = BEGIN_S;
+        token->stringValue = string.data;
 		blank(token, STRING_TO);
 		string_test = false;
-        state = BEGIN_S;
-		//printf("end\n");
         return 0;
 	}
 	else if (sign == '\\')  /* it means just one \ */
@@ -388,7 +372,6 @@ if (sign == EOF)  /*end of file   */
 	}
 	else
 	{
-		
 		addCharacterS(&string, sign);
     	state = STRING_S;
     }
@@ -416,7 +399,6 @@ if (sign == EOF)  /*end of file   */
     {	
     	state = HEXADECIMAL_ESC_SEQ_S;
     	break;
-
     }
     else
     {
@@ -429,32 +411,29 @@ if (sign == EOF)  /*end of file   */
     case HEXADECIMAL_ESC_SEQ_S: //for hexadecimal number or escape sequence                       **********NOT YET   *  HEXADECIMAL ESC SEQ*********
     
     if (isdigit(sign)) // digit 
-    {	//printf("dve\n");
+    {
     	addCharacterS (&hexadecimal_string, sign);
     	first = (hexadecimal_string.data[0]- '0')*16;
-    	printf(" %d HODNOTA 1\n", first);
     	state = HEXADECIMAL_SECOND_S;
     	break;
     }
     else if (sign >= 'A' && sign <= 'F') //A-F
-    {	//printf("XY\n");
+    {	
     	addCharacterS (&hexadecimal_string, sign);
     	first =  (hexadecimal_string.data[0]-'0'-7)*16;
-    	printf(" %d HODNOTA 2\n", first);
     	state = HEXADECIMAL_SECOND_S;
-
     	break;
     }
     else if (sign >= 'a' && sign <= 'f') //a-f
     {
     	addCharacterS (&hexadecimal_string, sign);
     	first =  (hexadecimal_string.data[0]- '0'-39)*16;
-    	printf(" %d HODNOTA 3\n", first);
     	state = HEXADECIMAL_SECOND_S;
     	break;
     }
     else
     	error = 1;
+
     global_column++;
     state = STRING_S;
     cleanS (&hexadecimal_string);
@@ -465,40 +444,32 @@ if (sign == EOF)  /*end of file   */
     global_column++;
     
     if (sign >= 'A' && sign <= 'F')
-    {//printf("aha\n");
+    {
     	addCharacterS(&hexadecimal_string, sign);
-    	//second = atoi(hexadecimal_string.data);
     	second =  (hexadecimal_string.data[1]-'0'-7)+first;
-    	printf(" %d HODNOTA 4\n", second);
-    	//hexa = first*16+second;
 
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
-		//break;
     }
     else if (sign >= 'a' && sign <= 'f')
     {
     	addCharacterS(&hexadecimal_string, sign);
     	second =  (hexadecimal_string.data[1]- '0'-39)+first;
-    	printf(" %d HODNOTA 5\n", second);
-    	//hexa = first*16+second;
+  
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
-    	//break;
     }
 
     else if (isdigit(sign))
     {
     	addCharacterS(&hexadecimal_string, sign);
     	second =  (hexadecimal_string.data[1]- '0')+first;
-    	printf(" %d HODNOTA 6\n", second);
-    	//hexa = first*16+second;
+
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
 		hexa = 0;
-    //	break;
     }
     else
     	error = 1;
@@ -561,7 +532,6 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
     	return 0;
     }
-
     break;
 
 
@@ -577,14 +547,15 @@ if (sign == EOF)  /*end of file   */
     }
     else if (isalnum(sign))
     {
-		type_of_token = NE_TO;
+		type_of_token = DIV_TO;
 		alphanumerical (sign, token, type_of_token);
 		state = BEGIN_S;
 		return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"' || sign == EOF)
     {
-    	type_of_token = NE_TO;
+        ungetc(sign, inputFile);
+    	type_of_token = DIV_TO;
 		blank (token, type_of_token);
 		state = BEGIN_S;
         return 0;
@@ -592,7 +563,10 @@ if (sign == EOF)  /*end of file   */
    	else if (sign == '\n')
    	{
    		end_of_row ();
+        type_of_token = DIV_TO;
+        blank (token, type_of_token);
    		state = BEGIN_S;
+        return 0;
    	}
    	else
    		error = true;
@@ -648,7 +622,6 @@ if (sign == EOF)  /*end of file   */
     }
     break;
 
-
    
     case NE_S:          // !=
     if (sign == '=')
@@ -669,8 +642,9 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;       
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
     	type_of_token = NE_TO;
 		blank (token, type_of_token);
 		state = BEGIN_S;
@@ -679,14 +653,14 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = NE_TO;
+        blank (token, type_of_token);
     	state = BEGIN_S;
         return 0;
     }
     else
     	error = true;
     break;
-
-
 
 
     case ASSIGN_OR_EQUAL_S: //for = == 
@@ -704,8 +678,9 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign)) //if nonprintable sign
+    else if (isblank(sign) || sign == '"') //if nonprintable sign
     {
+        ungetc(sign, inputFile);
     	type_of_token = ASSIGN_TO;
 		blank (token, type_of_token);
         state = BEGIN_S;
@@ -713,7 +688,11 @@ if (sign == EOF)  /*end of file   */
     }
    else if (sign == '\n')
     {
-    	end_of_row ();
+
+        end_of_row ();
+        type_of_token = ASSIGN_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
         return 0;
     }
     else // if other operator 
@@ -730,8 +709,9 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
     	type_of_token = E_TO;
     	blank (token, type_of_token);
     	state = BEGIN_S;
@@ -740,14 +720,14 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = E_TO;
+        blank (token, type_of_token);
     	state = BEGIN_S;
         return 0;
     }
     else
         error = true;
 	break;
-    
-
 
 
     case L_LE_OUT_S:  //for < <= <<
@@ -756,7 +736,6 @@ if (sign == EOF)  /*end of file   */
     	state = LE_S;
     	local_column = global_column;
     	global_column++;
-
     }
     else if (sign == '<')
     {
@@ -771,8 +750,9 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"' || sign == EOF)
     {	
+        ungetc(sign, inputFile);
     	type_of_token = L_TO;
     	blank (token, type_of_token);
     	state = BEGIN_S;
@@ -781,6 +761,8 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = L_TO;
+        blank (token, type_of_token);
     	state = BEGIN_S;
         return 0;
     }
@@ -797,8 +779,9 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
     	type_of_token = LE_TO;
     	blank (token, type_of_token);
     	state = BEGIN_S;
@@ -807,10 +790,13 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = LE_TO;
+        blank (token, type_of_token);
     	state = BEGIN_S;
         return 0;
     }
     else
+
         error = true;
     break;
 
@@ -822,8 +808,9 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
     	type_of_token = OUT_TO;
     	blank (token, type_of_token);
     	state = BEGIN_S;
@@ -832,15 +819,14 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
 		end_of_row ();
+        type_of_token = OUT_TO;
+        blank (token, type_of_token);
 		state = BEGIN_S;
         return 0;
     }
     else
         error = true;
     break;
-
-
-	
 
 
     case G_GE_IN_S:  //for > >= >>
@@ -863,8 +849,9 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
     	type_of_token = G_TO;
     	blank (token, type_of_token);
     	state = BEGIN_S;
@@ -873,6 +860,8 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = G_TO;
+        blank (token, type_of_token);
     	state = BEGIN_S;
         return 0;
     }
@@ -889,8 +878,9 @@ if (sign == EOF)  /*end of file   */
 		alphanumerical (sign, token, type_of_token);
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
         state = BEGIN_S;
     	type_of_token = IN_TO;
     	blank (token, type_of_token);
@@ -899,6 +889,9 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = IN_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
         return 0;
     }
     else
@@ -914,8 +907,9 @@ if (sign == EOF)  /*end of file   */
 		alphanumerical (sign, token, type_of_token);
         return 0;
     }
-    else if (isblank(sign))
+    else if (isblank(sign) || sign == '"')
     {
+        ungetc(sign, inputFile);
         state = BEGIN_S;
     	type_of_token = GE_TO;
     	blank (token, type_of_token);
@@ -924,6 +918,9 @@ if (sign == EOF)  /*end of file   */
     else if (sign == '\n')
     {
     	end_of_row ();
+        type_of_token = GE_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
         return 0;
     }
     else
@@ -932,22 +929,10 @@ if (sign == EOF)  /*end of file   */
 
 
 /************************	END OF CASES	************************************/
-
-
-
 }
 
-
- 
 }
 if (error == true)
 	return 1;
 return 0;
 }
-
-/*
-isspace OR isblank ???
-
-isalnum () je ekvivalentni s (isalpha() || isdigit ())
-
-*/
