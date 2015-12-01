@@ -7,7 +7,7 @@
 *
 * 	author: 	Karolína Klepáčková (xklepa04)
 * 	created: 	2015-10-30
-* 	modified: 	2015-11-26
+* 	modified: 	2015-12-1
 *
 *****************************************************************************************/
 
@@ -250,7 +250,7 @@ if (sign == EOF)  /*end of file   */
 		 		state = NUMBER_S;
 		 		addCharacterS (&string, sign);
 		 	}
-		 	else if (isblank(sign) || sign == '\t')
+		 	else if (isblank(sign))
 		 	{
 		 		state = BEGIN_S;
 		 		global_column++;
@@ -642,7 +642,7 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;       
     }
-    else if (isspace(sign) || sign == '"' || sign == '\t')
+    else if (isblank(sign) || sign == '"' || sign == '\t')
     {
         ungetc(sign, inputFile);
     	type_of_token = NE_TO;
