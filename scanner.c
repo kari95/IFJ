@@ -642,7 +642,7 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
         return 0;       
     }
-    else if (isblank(sign) || sign == '"' || sign == '\t')
+    else if (isblank(sign) || sign == '"')
     {
         ungetc(sign, inputFile);
     	type_of_token = NE_TO;
