@@ -96,6 +96,7 @@ static bool expression(block_T *block, void **value);
 static void syntaxError(token_T *token)
 {
     fprintf(stderr, "%u:%u: syntax error: unexpected token %d\n", token->row, token->col, token->type);
+    errorCode = 2;
 }
 
 // parse 'programFile' an generate list of instructions 'program'
@@ -107,8 +108,10 @@ int parse(FILE *programFile, block_T *block)
     allocBlock(block);
 
     // insert main function to table of functions
-    symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, NULL});
-    function->data = block;
+    symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, {.data = block}});
+    insertST(&functions, "sort", (symbol_T) {FUNCTION_ST + 1, INT_TY, true, {.data = block}});
+
+    insertST(&block->symbols, "$$string", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
 
     initPS(&constants);
 
@@ -403,6 +406,8 @@ bool statLL(block_T *block)
             {
                 newInstruction.source1 = expressionOutput;
                 newInstruction.source2 = NULL;
+                if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
+                    ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) newInstruction.source1)->dataType;
                 if (token.type == SEMI_TO)
                 {
                     if (newInstruction.source1 != newInstruction.destination)
@@ -508,6 +513,8 @@ bool statLL(block_T *block)
                                     errorCode = getTokenSC(&token);
                                     if (expression(tempBlock, &expressionOutput))
                                     {
+                                        if (symbol->dataType == AUTO_TY)
+                                            symbol->dataType = ((symbol_T *) expressionOutput)->dataType;
                                         insertLastIL(&tempBlock->program, (instruction_T) {ASSIGN_I, symbol, expressionOutput, NULL});
                                         if (token.type == RBRACKET_TO)
                                         {
@@ -651,6 +658,8 @@ bool declarationLL(block_T *block)
                     instruction_T newInstruction;
                     newInstruction.type = ASSIGN_I; 
                     newInstruction.destination = symbol;
+                    if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
+                        ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) value)->dataType;
                     newInstruction.source1 = value;
                     newInstruction.source2 = NULL;
                     insertLastIL(&block->program, newInstruction);
@@ -821,8 +830,10 @@ bool rvalLL(block_T *block, void **value)
             {
                 if (token.type == RBRACKET_TO)
                 {
-
-                    insertLastIL(&block->program, (instruction_T) {CALL_I, function->data, *value, NULL});
+                    instType_T istrType = CALL_I;
+                    if (function->type == FUNCTION_ST + 1)
+                        istrType = SORT_I;
+                    insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
                     errorCode = getTokenSC(&token);
                     return true;
                 }
@@ -1052,17 +1063,27 @@ bool expression(block_T *block, void **value)
                         sprintf(tempName, "$%u", tempCounter);
                         tempCounter++;
                         int offset = block->symbols.count;
-                        dataType_T type;
+                        dataType_T type = INT_TY;
                         if (top >= PLUS_TO && top <= DIV_TO)
                         {
                             if (source1->dataType == DOUBLE_TY || source2->dataType == DOUBLE_TY)
                                 type = DOUBLE_TY;
                             else if (source1->dataType == STRING_TY || source2->dataType == STRING_TY)
+                            {    
                                 fprintf(stderr, "bad operrand type\n");
+                                return false;
+                            }
                         }
                         else
-                            type = INT_TY;
+                        {
+                            if (source1->dataType != source2->dataType && (source1->dataType == STRING_TY || source2->dataType == STRING_TY))
+                            {
+                                fprintf(stderr, "bad operrand type\n");
+                                return false;
+                            }   
+                        }
                         symbol_T *tempSymbol = insertST(&block->symbols, tempName, (symbol_T){VARIABLE_ST, type, true, (void *) offset});
+                        //printf("%s %d\n", tempName, type);
                         newInstruction.source1 = source1;
                         newInstruction.source2 = source2;
                         newInstruction.destination = tempSymbol;

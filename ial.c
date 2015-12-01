@@ -16,6 +16,37 @@
 #include <string.h>
 #include "ial.h"
 
+int parti(char a[],int p, int r)
+{
+    char x = a[r];
+    int i = p-1;
+    int j;
+    char *c;
+    char *d;
+    for (j = p; j < r; j++){
+        if (a[j]<=x){
+            i++;
+            c = a[i];
+            a[i] = a[j];
+            a[j] = c;
+        }
+    }
+    d = a[i + 1];
+    a[i + 1] = a[r];
+    a[r] = d;
+    return i+1;
+
+}
+void quicksort(char *string, int p, int r)
+{
+    if (p<r)
+    {
+        int q = parti(string, p, r);
+        quicksort(string, p, q-1);
+        quicksort(string, q+1, r);
+    }
+}
+
 // find in 'string' substring 'find'
 // returns position of first character of 'find' in 'string'
 // if 'string' is empty returns 0, if not found returns -1
@@ -24,7 +55,11 @@
 
 // sort characters in 'string'
 // use Quick sort algorithm
-/* void sort(char *string); */
+void sort(char *string)
+{
+    int length = strlen(string);
+    quicksort(string, 0, length - 1);
+}
 
 /****************************************************************************************/
 
