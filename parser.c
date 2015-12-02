@@ -42,14 +42,6 @@ symbol_T *allocSymbol()
     return malloc(sizeof(symbol_T));
 }
 
-char *allocString(char *string)
-{
-    int length = strlen(string);
-    char *newString = malloc(length + 1);
-    strcpy(newString, string);
-    return newString;
-}
-
 typedef enum {
     LEFT_PR,        // < 
     RIGHT_PR,       // > 
@@ -109,9 +101,16 @@ int parse(FILE *programFile, block_T *block)
 
     // insert main function to table of functions
     symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, {.data = block}});
-    insertST(&functions, "sort", (symbol_T) {FUNCTION_ST + 1, INT_TY, true, {.data = block}});
+    insertST(&functions, "sort", (symbol_T) {FUNCTION_ST + 1, STRING_TY, true, {.data = block}});   // string sort(string s)
+    insertST(&functions, "length", (symbol_T) {FUNCTION_ST + 2, INT_TY, true, {.data = block}});    // int length(string s)
+    insertST(&functions, "concat", (symbol_T) {FUNCTION_ST + 3, STRING_TY, true, {.data = block}}); // string concat(string s1, string s2)
+    insertST(&functions, "substr", (symbol_T) {FUNCTION_ST + 4, STRING_TY, true, {.data = block}}); // string substr(string s, int i, int n)
+    insertST(&functions, "find", (symbol_T) {FUNCTION_ST + 5, INT_TY, true, {.data = block}});      // int find(string s, string search)
 
-    insertST(&block->symbols, "$$string", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
+    // for parameters for build-in functions
+    insertST(&block->symbols, "$$BI1", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
+    insertST(&block->symbols, "$$BI2", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
+    insertST(&block->symbols, "$$BI3", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
 
     initPS(&constants);
 
@@ -280,13 +279,16 @@ bool parametrLL(symbol_T *function)
 
 bool nextParameterListLL(symbol_T *function)
 {
-    if (token.type == TYPE_TO)
+    if (token.type == COMMA_TO)
     {
-        // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
         errorCode = getTokenSC(&token);
-        if (parametrLL(function))
-            if (nextParameterListLL(function))
-                return true;
+        if (token.type == TYPE_TO)
+        {
+            // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
+            if (parametrLL(function))
+                if (nextParameterListLL(function))
+                    return true;
+        }
     }
     else if (token.type == RBRACKET_TO)
     {
@@ -408,6 +410,9 @@ bool statLL(block_T *block)
                 newInstruction.source2 = NULL;
                 if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
                     ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) newInstruction.source1)->dataType;
+                if (((symbol_T *) newInstruction.destination)->dataType != ((symbol_T *) newInstruction.source1)->dataType)
+                    if (((symbol_T *) newInstruction.destination)->dataType == STRING_TY || ((symbol_T *) newInstruction.source1)->dataType == STRING_TY)
+                        fprintf(stderr, "bad conversion\n");
                 if (token.type == SEMI_TO)
                 {
                     if (newInstruction.source1 != newInstruction.destination)
@@ -833,6 +838,14 @@ bool rvalLL(block_T *block, void **value)
                     instType_T istrType = CALL_I;
                     if (function->type == FUNCTION_ST + 1)
                         istrType = SORT_I;
+                    if (function->type == FUNCTION_ST + 2)
+                        istrType = LENGTH_I;
+                    if (function->type == FUNCTION_ST + 3)
+                        istrType = CONCAT_I;
+                    if (function->type == FUNCTION_ST + 4)
+                        istrType = SUBSTRING_I;
+                    if (function->type == FUNCTION_ST + 5)
+                        istrType = FIND_I;
                     insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
                     errorCode = getTokenSC(&token);
                     return true;
@@ -928,7 +941,7 @@ bool callParameterLL(block_T *block, void **value)
                 newConstant->doubleValue = token.doubleValue;
                 break;
             case STRING_TO:
-                newConstant->stringValue = allocString(token.stringValue);
+                newConstant->stringValue = allocString(token.stringValue, 0);
 
                 break;
         }
@@ -986,6 +999,7 @@ bool expression(block_T *block, void **value)
         if (token.type > EOF_TO)
         {
             syntaxError(&token);
+            return false;
             break;
         }
         precedent_T action = table[(int) topPS(&stack)][(int) token.type];
@@ -1025,7 +1039,7 @@ bool expression(block_T *block, void **value)
                             newConstant->doubleValue = token.doubleValue;
                             break;
                         case STRING_TO:
-                            newConstant->stringValue = allocString(token.stringValue);
+                            newConstant->stringValue = allocString(token.stringValue, 0);
                             break;
                     }
                     pushPS(&constants, newConstant);
@@ -1054,11 +1068,17 @@ bool expression(block_T *block, void **value)
                         if ((source2 = topPS(&operandStack)) != EOF_TO)
                             popPS(&operandStack);
                         else
+                        {
                             syntaxError(&token);
+                            return false;
+                        }
                         if ((source1 = topPS(&operandStack)) != EOF_TO)
                             popPS(&operandStack);
                         else
+                        {
                             syntaxError(&token);
+                            return false;
+                        }
                         char tempName[10];
                         sprintf(tempName, "$%u", tempCounter);
                         tempCounter++;
@@ -1114,6 +1134,7 @@ bool expression(block_T *block, void **value)
                 {
                     syntaxError(&token);
                     stop = true;
+                    return false;
                 }
                 break;
             }
@@ -1121,11 +1142,11 @@ bool expression(block_T *block, void **value)
             {
                 stop = true;
                 syntaxError(&token);
-                break;
+                return false;
             }
         }
     }
-
+    // memory leak
     destroyPS(&stack);
     destroyPS(&operandStack);
     return true;

@@ -61,3 +61,12 @@ void cleanS(string_T *string)
     string->length = 0;
     string->data[0] = '\0'; // string terminator
 }
+
+// allocation memory for 'string' anyd copy them
+char *allocString(char *string, int freeSpace)
+{
+    int length = strlen(string);
+    char *newString = malloc(length + freeSpace + 1);
+    strcpy(newString, string);
+    return newString;
+}

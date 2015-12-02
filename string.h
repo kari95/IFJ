@@ -36,4 +36,7 @@ int addCharacterS(string_T *string, char character);
 // set string to length 0 (alocated memory are not free)
 void cleanS(string_T *string);
 
+// allocation memory for 'string' + 'freeSpace' and copy them
+char *allocString(char *string, int freeSpace);
+
 #endif

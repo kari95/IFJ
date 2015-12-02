@@ -39,22 +39,6 @@ frame_T *allocFrame(block_T *block)
     return frame;
 }
 
-/*operand_type_T prepareOperands(dataST_T op1, dataST_T op2, dataST_T* op1out, dataST_T* op2out, bool isRelation)
-{
-    if (op1->type == op2->type)
-        if (isRelation)
-            return INT_T;
-        else
-            return op1->type;
-    if ((op1->type == INT_T && op2->type == DOUBLE_T) || (op2->type == INT_T && op1->type == DOUBLE_T))
-        if (isRelation)
-            return INT_T;
-        else
-            return DOUBLE_T;
-    return ERR_T;
-}*/
-
-
 int interpret(block_T *b)
 {
     pointerStack_T frameStack;
@@ -146,11 +130,28 @@ int interpret(block_T *b)
             }
             case SORT_I:
             {
+                frame_T *oldFrame = topPS(&frameStack);
                 //pushPS(&returnAddressStack, returnAddress);
                 //returnAddress = instruction->source1;
-                sort(frame[0].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, 0);
+                //printf("%d\n", ((symbol_T *) instruction->source1)->intValue);
+                sort(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 //oldFrame[returnAddress->intValue].stringValue = ((symbol_T *)instruction->source1)->stringValue;
-                frame = topPS(&frameStack);
+                frame = oldFrame;
+                popPS(&frameStack);
+                break;
+            }
+            case CONCAT_I:
+            {
+                frame_T *oldFrame = topPS(&frameStack);
+                //pushPS(&returnAddressStack, returnAddress);
+                //returnAddress = instruction->source1;
+                int size = strlen(frame[1].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, size);
+                //printf("%d\n", ((symbol_T *) instruction->source1)->intValue);
+                strcat(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue, frame[1].stringValue);
+                //oldFrame[returnAddress->intValue].stringValue = ((symbol_T *)instruction->source1)->stringValue;
+                frame = oldFrame;
                 popPS(&frameStack);
                 break;
             }
@@ -174,10 +175,12 @@ int interpret(block_T *b)
                     {
                         if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
                             oldFrame[returnAddress->intValue] = frame[((symbol_T *)instruction->source1)->intValue];
+                        else if (((symbol_T *)instruction->source1)->dataType == STRING_TY && returnAddress->dataType == STRING_TY)
+                            oldFrame[returnAddress->intValue].stringValue = allocString(((symbol_T *)instruction->source1)->stringValue, 0);
                         else
                             oldFrame[returnAddress->intValue].doubleValue = ((symbol_T *)instruction->source1)->doubleValue;
                     }
-                    frame = topPS(&frameStack);
+                    frame = oldFrame;
                     popPS(&frameStack);
                     block_T *callBlock = topPS(&callBlockStack);
                     int i = 0;
@@ -329,10 +332,16 @@ int interpret(block_T *b)
                         op2 = source2->doubleValue;
                     else
                         op2 = (double) source2->intValue;
+                    if (op2 == 0)
+                        return 9;
                     destination->doubleValue = op1 / op2;
                 }
                 else
+                {
+                    if (source2->intValue == 0)
+                        return 9;
                     destination->intValue = source1->intValue / source2->intValue;
+                }
                 break;
             }
             case EQ_I: // ==
@@ -496,7 +505,7 @@ int interpret(block_T *b)
                 }
                 else
                 {
-                    destination->stringValue = source1->stringValue;
+                    destination->stringValue = allocString(source1->stringValue, 0);
                 }
                 break;
             }
