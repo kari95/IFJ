@@ -73,6 +73,7 @@ int interpret(block_T *b)
 
         if (!instruction)
         {
+            //free(block);
             if (block = topPS(&blockStack))
             {
                 instruction = topPS(&instructionStack);
@@ -154,6 +155,7 @@ int interpret(block_T *b)
                 }
                 else
                     fprintf(stderr, "substr out of range\n");
+                free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
@@ -163,6 +165,7 @@ int interpret(block_T *b)
                 //printf("lengtg %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = strlen(frame[0].stringValue);
+                free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
@@ -172,6 +175,7 @@ int interpret(block_T *b)
                 //printf("find %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = find(frame[0].stringValue, frame[1].stringValue);
+                free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
@@ -182,6 +186,7 @@ int interpret(block_T *b)
                 frame_T *oldFrame = topPS(&frameStack);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, 0);
                 sort(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
+                free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
@@ -193,6 +198,7 @@ int interpret(block_T *b)
                 int size = strlen(frame[1].stringValue);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, size);
                 strcat(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue, frame[1].stringValue);
+                free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
@@ -224,6 +230,7 @@ int interpret(block_T *b)
                         else
                             oldFrame[returnAddress->intValue].doubleValue = ((symbol_T *)instruction->source1)->doubleValue;
                     }
+                    free(frame);
                     frame = oldFrame;
                     popPS(&frameStack);
                     block_T *callBlock = topPS(&callBlockStack);
