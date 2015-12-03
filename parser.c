@@ -22,6 +22,20 @@
 #include "parser.h"
 #include "ial.h"
 
+typedef enum {
+    LEFT_PR,        // < 
+    RIGHT_PR,       // > 
+    EQUAL_PR,       // = 
+    SUCESS_PR,      // S
+    ERROR_PR,       // E
+} precedent_T;
+
+// table with functions
+static symbolTable_T functions;
+static token_T token;
+static int errorCode = 0;
+
+
 block_T *allocBlock(block_T *block)
 {
     if (!block)
@@ -37,24 +51,20 @@ block_T *allocBlock(block_T *block)
     return block;
 }
 
+void getToken(token_T *token)
+{
+    errorCode = getTokenSC(token);
+    if (errorCode)
+    {
+        fprintf(stderr, "error with token %d\n", token->type);
+        token->type = EOF_TO;
+    }
+}
+
 symbol_T *allocSymbol()
 {
     return malloc(sizeof(symbol_T));
 }
-
-typedef enum {
-    LEFT_PR,        // < 
-    RIGHT_PR,       // > 
-    EQUAL_PR,       // = 
-    SUCESS_PR,      // S
-    ERROR_PR,       // E
-} precedent_T;
-
-// table with functions
-static symbolTable_T functions;
-static token_T token;
-static int errorCode = 0;
-
 // stack for constants
 pointerStack_T constants; 
 
@@ -108,13 +118,13 @@ int parse(FILE *programFile, block_T *block)
     insertST(&functions, "find", (symbol_T) {FUNCTION_ST + 5, INT_TY, true, {.data = block}});      // int find(string s, string search)
 
     // for parameters for build-in functions
-    insertST(&block->symbols, "$$BI1", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
-    insertST(&block->symbols, "$$BI2", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
-    insertST(&block->symbols, "$$BI3", (symbol_T){VARIABLE_ST, STRING_TY, false, 0});
+    insertST(&block->symbols, "$$BI1", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 0}});
+    insertST(&block->symbols, "$$BI2", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 1}});
+    insertST(&block->symbols, "$$BI3", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 2}});
 
     initPS(&constants);
 
-    errorCode = getTokenSC(&token);
+    getToken(&token);
     programLL(); // starting nonterminal
         
     // !destruction
@@ -156,7 +166,7 @@ bool functionLL()
         // FUNCTION -> type fid ( PARAMETER_LIST ) FBLOCK
         dataType_T dataType = token.dataType;
         symbol_T *function;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == ID_TO)
         {
             function = searchST(&functions, token.stringValue);
@@ -166,15 +176,15 @@ bool functionLL()
                 function->data = allocBlock(NULL);
             }
             //printf("data type: %d\n", function->dataType);
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (token.type == LBRACKET_TO)
             {
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 if (parametrListLL(function))
                 {
                     if (token.type == RBRACKET_TO)
                     {
-                        errorCode = getTokenSC(&token);
+                        getToken(&token);
                         if (fBlockLL(function))
                         {
                             /*startIL(&((block_T *) function->data)->program);
@@ -261,12 +271,12 @@ bool parametrLL(symbol_T *function)
     {
         // PARAMETER -> type id
         dataType_T dataType = token.dataType;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == ID_TO)
         {
             int offset = ((block_T *) function->data)->symbols.count;
-            insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, (void *) offset});
-            errorCode = getTokenSC(&token);
+            insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
+            getToken(&token);
             return true;            
         }
         else
@@ -281,7 +291,7 @@ bool nextParameterListLL(symbol_T *function)
 {
     if (token.type == COMMA_TO)
     {
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == TYPE_TO)
         {
             // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
@@ -293,7 +303,7 @@ bool nextParameterListLL(symbol_T *function)
     else if (token.type == RBRACKET_TO)
     {
         // NEXT_PARAMETER_LIST -> ε
-        return true;
+        return true;;
     }
     else
         syntaxError(&token);
@@ -316,7 +326,7 @@ bool fBlockLL(symbol_T *function)
     else if (token.type == SEMI_TO)
     {
         // FBLOCK -> ;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         return true;
     }
     else
@@ -329,12 +339,12 @@ bool blockLL(block_T *block)
     if (token.type == LCBRACKET_TO)
     {
         // BLOCK -> { STAT_LIST }
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (statListLL(block)) 
         {
             if (token.type == RCBRACKET_TO)
             {
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 return true;
             }
             else
@@ -399,11 +409,11 @@ bool statLL(block_T *block)
             return false;
         }
         newInstruction.destination = symbol;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == ASSIGN_TO)
         {
             void *expressionOutput = symbol;
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (rvalLL(block, &expressionOutput))
             {
                 newInstruction.source1 = expressionOutput;
@@ -417,7 +427,7 @@ bool statLL(block_T *block)
                 {
                     if (newInstruction.source1 != newInstruction.destination)
                         insertLastIL(&block->program, newInstruction);
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     return true;
                 }
                 else
@@ -432,17 +442,17 @@ bool statLL(block_T *block)
         // STAT -> if ( EXPRESSION ) BLOCK else BLOCK
         instruction_T newInstruction;
         newInstruction.type = IF_I;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == LBRACKET_TO)
         {
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             void *expressionOutput;
             if (expression(block, &expressionOutput))
             {
                 newInstruction.source1 = expressionOutput;
                 if (token.type == RBRACKET_TO)
                 {
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     block_T *newBlock = allocBlock(NULL);
                     newBlock->parrent = block;
                     newBlock->symbols.parrent = &block->symbols;
@@ -453,7 +463,7 @@ bool statLL(block_T *block)
                         block->symbols.count = newBlock->symbols.count;
                         if (token.type == ELSE_TO)
                         {
-                            errorCode = getTokenSC(&token);
+                            getToken(&token);
                             newBlock = allocBlock(NULL);
                             newBlock->parrent = block;
                             newBlock->symbols.parrent = &block->symbols;
@@ -490,40 +500,43 @@ bool statLL(block_T *block)
         newBlock->symbols.parrent = &block->symbols;
         newBlock->parrent = block;
         newBlock->symbols.parrent = &block->symbols;
+        //printf("CO %d\n", block->symbols.count);
         newBlock->symbols.count = block->symbols.count;
         tempBlock->symbols.parrent = &newBlock->symbols;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == LBRACKET_TO)
         {
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (declarationLL(newBlock))
             {
                 unsigned int declarationLength = newBlock->program.count;
                 if (token.type == SEMI_TO)
                 {
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     void *expressionOutput;
                     if (expression(newBlock, &expressionOutput))
                     {
                         insertLastIL(&newBlock->program, (instruction_T) {IF_NOT_BREAK_I, NULL, expressionOutput, NULL});
                         if (token.type == SEMI_TO)
                         {
-                            errorCode = getTokenSC(&token);
+                            getToken(&token);
                             if (token.type == ID_TO)
                             {
                                 symbol_T *symbol = searchST(&newBlock->symbols, token.stringValue);
-                                errorCode = getTokenSC(&token);
+                                getToken(&token);
                                 if (token.type == ASSIGN_TO)
                                 {
-                                    errorCode = getTokenSC(&token);
+                                    getToken(&token);
+                                    tempBlock->symbols.count = newBlock->symbols.count;
                                     if (expression(tempBlock, &expressionOutput))
                                     {
+                                        newBlock->symbols.count = tempBlock->symbols.count;
                                         if (symbol->dataType == AUTO_TY)
                                             symbol->dataType = ((symbol_T *) expressionOutput)->dataType;
                                         insertLastIL(&tempBlock->program, (instruction_T) {ASSIGN_I, symbol, expressionOutput, NULL});
                                         if (token.type == RBRACKET_TO)
                                         {
-                                            errorCode = getTokenSC(&token);
+                                            getToken(&token);
                                             if (blockLL(newBlock))
                                             {
                                                 block->symbols.count = newBlock->symbols.count;
@@ -564,14 +577,14 @@ bool statLL(block_T *block)
     else if (token.type == RETURN_TO)
     {
         // STAT -> return EXPRESSION ;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         void *expressionOutput;
         if (expression(block, &expressionOutput))
         {
             if (token.type == SEMI_TO)
             {
                 insertLastIL(&block->program, (instruction_T) {RETURN_I, NULL, expressionOutput, NULL});
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 return true;
             }
             else
@@ -582,15 +595,15 @@ bool statLL(block_T *block)
     {
         // STAT -> cin >> IN_LIST ;
         //
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == IN_TO)
         {
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (inListLL(block))
             {
                 if (token.type == SEMI_TO)
                 {
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     return true;
                 }
                 else
@@ -603,15 +616,15 @@ bool statLL(block_T *block)
     else if (token.type == COUT_TO)
     {
         // STAT -> cout << OUT_LIST ;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == OUT_TO)
         {
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (outListLL(block))
             {
                 if (token.type == SEMI_TO)
                 {
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     return true;
                 }
                 else
@@ -629,7 +642,7 @@ bool statLL(block_T *block)
         {
             if (token.type == SEMI_TO)
             {
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 return true;
             }
             else
@@ -648,13 +661,14 @@ bool declarationLL(block_T *block)
         // DECLARATION -> type id DEFINITION
         symbol_T *symbol;
         dataType_T dataType = token.dataType;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == ID_TO)
         {
+            //printf("CO %d\n", block->symbols.count);
             int offset = block->symbols.count;
-            symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, (void* ) offset});
+            symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
             //printf("%s %p offset %d\n",token.stringValue, symbol, offset);
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             void *value;
             if (definitionLL(block, &value))
             {
@@ -683,7 +697,7 @@ bool definitionLL(block_T *block, void **value)
     if (token.type == ASSIGN_TO)
     {
         // DEFINITION -> = EXPRESSION
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (expression(block, value))
             return true;
     }
@@ -729,7 +743,7 @@ bool nextOutListLL(block_T *block)
         void *outputOperand;
         instruction_T newInstruction;
         newInstruction.type = PRINT_I;
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (callParameterLL(block, &outputOperand))
         {
             newInstruction.destination = NULL;
@@ -767,7 +781,7 @@ bool inListLL(block_T *block)
         newInstruction.source1 = NULL;
         newInstruction.source2 = NULL;
         insertLastIL(&block->program, newInstruction);
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (nextInListLL(block))
             return true;
     }
@@ -781,7 +795,7 @@ bool nextInListLL(block_T *block)
     if (token.type == IN_TO)
     {
         // NEXT_IN_LIST -> >> id NEXT_IN_LIST
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == ID_TO)
         {
             instruction_T newInstruction;
@@ -796,7 +810,7 @@ bool nextInListLL(block_T *block)
             newInstruction.source1 = NULL;
             newInstruction.source2 = NULL;
             insertLastIL(&block->program, newInstruction);
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (nextInListLL(block))
                 return true;
         }
@@ -826,11 +840,11 @@ bool rvalLL(block_T *block, void **value)
     if (token.type == ID_TO - 1) // == FID
     {
         // RVAL -> fid ( CALL_PARAMETER_LIST )
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (token.type == LBRACKET_TO)
         {
             insertLastIL(&block->program, (instruction_T) {NEW_FRAME_I, function->data, NULL, NULL});
-            errorCode = getTokenSC(&token);
+            getToken(&token);
             if (callParameterListLL(block))
             {
                 if (token.type == RBRACKET_TO)
@@ -847,7 +861,7 @@ bool rvalLL(block_T *block, void **value)
                     if (function->type == FUNCTION_ST + 5)
                         istrType = FIND_I;
                     insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
-                    errorCode = getTokenSC(&token);
+                    getToken(&token);
                     return true;
                 }
                 else
@@ -892,7 +906,7 @@ bool nextCallParameterLL(block_T *block)
     if (token.type == COMMA_TO)
     {
         // NEXT_CALL_PARAMETER_LIST -> , CALL_PARAMETER NEXT_CALL_PARAMETER_LIST
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (callParameterLL(block, NULL))
             if (nextCallParameterLL(block))
                 return true;
@@ -922,7 +936,7 @@ bool callParameterLL(block_T *block, void **value)
             *value = symbol;
         else
             insertLastIL(&block->program, (instruction_T) {SET_PARAMETR_I, NULL, symbol, NULL});
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         return true;
     }
     else if (token.type >= INT_TO && token.type <= STRING_TO)
@@ -946,7 +960,7 @@ bool callParameterLL(block_T *block, void **value)
                 break;
         }
         pushPS(&constants, newConstant);
-        errorCode = getTokenSC(&token);
+        getToken(&token);
         if (value)
             *value = newConstant;
         else
@@ -1051,7 +1065,7 @@ bool expression(block_T *block, void **value)
                     pushPS(&stack, (void *) token.type);
                 }
                 bracketSucess = true;
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 break;
             }
             case RIGHT_PR:  // >
@@ -1102,12 +1116,15 @@ bool expression(block_T *block, void **value)
                                 return false;
                             }   
                         }
-                        symbol_T *tempSymbol = insertST(&block->symbols, tempName, (symbol_T){VARIABLE_ST, type, true, (void *) offset});
+                        symbol_T *tempSymbol = insertST(&block->symbols, tempName, (symbol_T){VARIABLE_ST, type, true, {.intValue = offset}});
+                        //printf("TMP %d\n", offset);
                         //printf("%s %d\n", tempName, type);
                         newInstruction.source1 = source1;
                         newInstruction.source2 = source2;
                         newInstruction.destination = tempSymbol;
                         pushPS(&operandStack, (void *) newInstruction.destination);
+                        //if (newInstruction.type == EQ_I)
+                        //    printf("E %p %p\n", newInstruction.source1, newInstruction.source2);
                         insertLastIL(&block->program, newInstruction);
                     }
                     popPS(&stack);
@@ -1119,7 +1136,7 @@ bool expression(block_T *block, void **value)
             case EQUAL_PR:  // =
             {
                 pushPS(&stack, (void *) token.type);
-                errorCode = getTokenSC(&token);
+                getToken(&token);
                 break;
             }
             case SUCESS_PR: // S

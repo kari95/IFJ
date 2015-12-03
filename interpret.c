@@ -107,12 +107,20 @@ int interpret(block_T *b)
                     source2 = &((symbol_T *)instruction->source2)->data;
                 source2Type = ((symbol_T *)instruction->source2)->dataType;
             }
+            //if (instruction->type >= G_I && instruction->type <= NEQ_I)
+            /*if (instruction->type == PRINT_I || instruction->type == ASSIGN_I)
+            {
+                //printf("%d\n", ((symbol_T *)instruction->source1)->type);
+                //printf("%d\n", ((symbol_T *)instruction->source1)->dataType);
+                printf("index %d\n", ((symbol_T *)instruction->source1)->intValue);
+            }*/
         }
         //printf("I: %d\n", instruction->type);
         switch (instruction->type)
         {
             case NEW_FRAME_I:
             {
+                //printf("newframe %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 pushPS(&frameStack, frame);
                 frame = allocFrame(instruction->destination);
                 paramaterCounter = 0;
@@ -120,6 +128,7 @@ int interpret(block_T *b)
             }
             case SET_PARAMETR_I:
             {
+                //printf("serparam %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
                     frame[paramaterCounter] = oldFrame[(int) ((symbol_T *)instruction->source1)->data];
@@ -128,35 +137,69 @@ int interpret(block_T *b)
                 paramaterCounter++;
                 break;
             }
+            case SUBSTRING_I:
+            {
+                //printf("substring %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
+                frame_T *oldFrame = topPS(&frameStack);
+                int returnIndex = ((symbol_T *) instruction->source1)->intValue;
+                int index = frame[1].intValue;
+                int count = frame[2].intValue;
+                char *string = frame[0].stringValue;
+                int size = strlen(string);
+                oldFrame[returnIndex].stringValue = allocString("", count);
+                if (index + count <= size)
+                {
+                    memcpy(oldFrame[returnIndex].stringValue, &frame[0].stringValue[index], count );
+                    oldFrame[returnIndex].stringValue[count] = '\0';
+                }
+                else
+                    fprintf(stderr, "substr out of range\n");
+                frame = oldFrame;
+                popPS(&frameStack);
+                break;
+            }
+            case LENGTH_I:
+            {
+                //printf("lengtg %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
+                frame_T *oldFrame = topPS(&frameStack);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = strlen(frame[0].stringValue);
+                frame = oldFrame;
+                popPS(&frameStack);
+                break;
+            }
+            case FIND_I:
+            {
+                //printf("find %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
+                frame_T *oldFrame = topPS(&frameStack);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = find(frame[0].stringValue, frame[1].stringValue);
+                frame = oldFrame;
+                popPS(&frameStack);
+                break;
+            }
             case SORT_I:
             {
+                //printf("sort %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
-                //pushPS(&returnAddressStack, returnAddress);
-                //returnAddress = instruction->source1;
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, 0);
-                //printf("%d\n", ((symbol_T *) instruction->source1)->intValue);
                 sort(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
-                //oldFrame[returnAddress->intValue].stringValue = ((symbol_T *)instruction->source1)->stringValue;
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
             }
             case CONCAT_I:
             {
+                //printf("concat %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
-                //pushPS(&returnAddressStack, returnAddress);
-                //returnAddress = instruction->source1;
                 int size = strlen(frame[1].stringValue);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, size);
-                //printf("%d\n", ((symbol_T *) instruction->source1)->intValue);
                 strcat(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue, frame[1].stringValue);
-                //oldFrame[returnAddress->intValue].stringValue = ((symbol_T *)instruction->source1)->stringValue;
                 frame = oldFrame;
                 popPS(&frameStack);
                 break;
             }
             case CALL_I:
             {
+                //printf("call %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 pushPS(&blockStack, block);
                 pushPS(&callBlockStack, block);
                 pushPS(&instructionStack, instruction);
@@ -168,6 +211,7 @@ int interpret(block_T *b)
             }
             case RETURN_I:
             {
+                //printf("return %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 if (oldFrame)
                 {
@@ -203,12 +247,9 @@ int interpret(block_T *b)
                 else
                     return 0;
             }
-            case DEL_FRAME_I:
-            {
-                break;
-            }
             case IF_I:
             {
+                //printf("if %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 int source1 = frame[(int) ((symbol_T *)instruction->source1)->data].intValue;
                 //printf("S %d\n", source1);
                 if (source1)
@@ -233,6 +274,7 @@ int interpret(block_T *b)
             }
             case IF_NOT_BREAK_I:
             {
+                //printf("innotbreak %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 int source1 = frame[(int) ((symbol_T *)instruction->source1)->data].intValue;
                 if (!source1)
                 {
@@ -246,6 +288,7 @@ int interpret(block_T *b)
             }
             case BLOCK_I:
             {
+                //printf("block %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 pushPS(&blockStack, block);
                 pushPS(&instructionStack, instruction);
                 block = instruction->destination;
@@ -254,14 +297,16 @@ int interpret(block_T *b)
             }
             case JUMP_START_I:
             {
+                //printf("jmpstart %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 int declarationLength = (int) instruction->destination;
                 instruction = NULL;
                 for (int i = 0; i < declarationLength; ++i)
                     instruction = getNextIL(&block->program, instruction);
-                continue;
+                break;
             }
             case ADD_I: // +
             {
+                //printf("add %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (destinationType == DOUBLE_TY)
                 {
                     double op1, op2;
@@ -281,6 +326,7 @@ int interpret(block_T *b)
             }
             case SUB_I: // -
             {
+                //printf("sub %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (destinationType == DOUBLE_TY)
                 {
                     double op1, op2;
@@ -300,7 +346,7 @@ int interpret(block_T *b)
             }
             case MUL_I: // *
             {
-                //printf("mul\n");
+                //printf("mul %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (destinationType == DOUBLE_TY)
                 {
                     double op1, op2;
@@ -320,7 +366,7 @@ int interpret(block_T *b)
             }
             case DIV_I: // /
             {
-                //printf("div\n");
+                //printf("div %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (destinationType == DOUBLE_TY)
                 {
                     double op1, op2;
@@ -346,10 +392,11 @@ int interpret(block_T *b)
             }
             case EQ_I: // ==
             {
-                //printf("==\n");
-
-                if (source1Type == STRING_TY || source2Type == STRING_TY)
+                //printf("== %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
+                if (source1Type == STRING_TY && source2Type == STRING_TY)
+                {
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) == 0;
+                }
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
                 {
                     double op1, op2;
@@ -370,7 +417,7 @@ int interpret(block_T *b)
             }
             case NEQ_I: // !=
             {
-                //printf("!=\n");
+                //printf("!= %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (source1Type == STRING_TY || source2Type == STRING_TY)
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) != 0;
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
@@ -393,7 +440,7 @@ int interpret(block_T *b)
             }
             case G_I: // >
             {
-                //printf(">\n");
+                //printf("> %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (source1Type == STRING_TY || source2Type == STRING_TY)
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) > 0;
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
@@ -416,7 +463,7 @@ int interpret(block_T *b)
             }
             case L_I: // <
             {
-                //printf("<\n");
+                //printf("< %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (source1Type == STRING_TY || source2Type == STRING_TY)
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) < 0;
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
@@ -439,7 +486,7 @@ int interpret(block_T *b)
             }
             case GE_I: // >=
             {
-                //printf(">=\n");
+                //printf(">= %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (source1Type == STRING_TY || source2Type == STRING_TY)
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) >= 0;
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
@@ -462,7 +509,7 @@ int interpret(block_T *b)
             }
             case LE_I: // <=
             {
-                //printf("<=\n");
+                //printf("<= %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (source1Type == STRING_TY || source2Type == STRING_TY)
                     destination->intValue = strcmp(source1->stringValue, source2->stringValue) <= 0;
                 else if (source1Type == DOUBLE_TY || source2Type == DOUBLE_TY)
@@ -485,6 +532,7 @@ int interpret(block_T *b)
             }
             case ASSIGN_I: // =
             {
+                //printf("= %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 if (destinationType == DOUBLE_TY)
                 {
                     double op1;
@@ -511,6 +559,7 @@ int interpret(block_T *b)
             }
             case PRINT_I: // printf()
             {
+                //printf("print %d %p %p %p\n", source1Type, instruction->destination, instruction->source1, instruction->source2);
                 switch (source1Type)
                 {
                     case INT_TY:
@@ -527,6 +576,7 @@ int interpret(block_T *b)
             }
             case SCAN_I: // scanf()
             {
+                //printf("scan %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 string_T tempString;
                 initS(&tempString);
                 switch (destinationType)

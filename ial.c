@@ -51,7 +51,47 @@ void quicksort(char *string, int p, int r)
 // returns position of first character of 'find' in 'string'
 // if 'string' is empty returns 0, if not found returns -1
 // implemented by Knuth-Morris-Pratt alhorithm
-/* int find(char *string, char *search); */
+int find(char *s, char *search)
+{
+    int delka=strlen(search);
+    int delkaretezce=strlen(s);
+    int i,j=0;
+    int k=0,l=0;
+    int nasel=0;
+    for(i=0;i<delkaretezce;i++){
+        if(i>0 && j>0){
+                if(s[i]==search[l]){
+                    l++;
+                    k=i;
+                }else{
+                    l=0;
+                    k=0;
+                }
+        }
+        if(s[i]==search[j]){
+            j++;
+            if(delka==j){
+                nasel=1;
+                break;
+            }
+        }else{
+            if(l>0){
+                i=k;
+                j=l;
+            }else{
+                i=i-j;
+                j=0;
+            }
+        }
+    }
+    if(nasel==1){
+        return i-delka+1;
+    }else if(delka==0 && delkaretezce>0){
+        return 0;
+    }else{
+        return -1;
+    }
+}
 
 // sort characters in 'string'
 // use Quick sort algorithm
