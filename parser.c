@@ -48,22 +48,17 @@ block_T *allocBlock(block_T *block)
         initST(&block->symbols);
         initIL(&block->program);
     }
+    else
+        errorCode = 99;
     return block;
-}
-
-void getToken(token_T *token)
-{
-    errorCode = getTokenSC(token);
-    if (errorCode)
-    {
-        fprintf(stderr, "error with token %d\n", token->type);
-        token->type = EOF_TO;
-    }
 }
 
 symbol_T *allocSymbol()
 {
-    return malloc(sizeof(symbol_T));
+    symbol_T *newSymbol = malloc(sizeof(symbol_T));
+    if (!newSymbol)
+        errorCode = 99;
+    return newSymbol;
 }
 // stack for constants
 pointerStack_T constants; 
@@ -94,11 +89,31 @@ static bool nextCallParameterLL(block_T *block);
 // precedent analysis for expression processing
 static bool expression(block_T *block, void **value);
 
+// get token form scanner and print error if fail
+bool getToken(token_T *token)
+{
+    if (getTokenSC(token))
+    {
+        fprintf(stderr, "%u:%u: bad token format\n", token->row, token->col);
+        token->type = EOF_TO;
+        errorCode = 1; // lexical error
+        return false;
+    }
+    return true;
+}
+
 // print syntax error to stderr
 static void syntaxError(token_T *token)
 {
     fprintf(stderr, "%u:%u: syntax error: unexpected token %d\n", token->row, token->col, token->type);
-    errorCode = 2;
+    errorCode = 2; // syntax error
+}
+
+// print syntax error to stderr
+static void definitionError(token_T *token, char* name)
+{
+    fprintf(stderr, "%u:%u: sematic error with %s definition\n", token->row, token->col, name);
+    errorCode = 2; // syntax error
 }
 
 // parse 'programFile' an generate list of instructions 'program'
@@ -124,9 +139,11 @@ int parse(FILE *programFile, block_T *block)
 
     initPS(&constants);
 
-    getToken(&token);
-    programLL(); // starting nonterminal
+    if (getToken(&token))
+        programLL(); // starting nonterminal
         
+    if (!function->defined)
+        errorCode = 3;
     // !destruction
     return errorCode;
 }
@@ -166,61 +183,68 @@ bool functionLL()
         // FUNCTION -> type fid ( PARAMETER_LIST ) FBLOCK
         dataType_T dataType = token.dataType;
         symbol_T *function;
-        getToken(&token);
-        if (token.type == ID_TO)
+        if (getToken(&token))
         {
-            function = searchST(&functions, token.stringValue);
-            if (function == NULL)
+            if (token.type == ID_TO)
             {
-                function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, false, NULL});
-                function->data = allocBlock(NULL);
-            }
-            //printf("data type: %d\n", function->dataType);
-            getToken(&token);
-            if (token.type == LBRACKET_TO)
-            {
-                getToken(&token);
-                if (parametrListLL(function))
+                function = searchST(&functions, token.stringValue);
+                if (function == NULL)
                 {
-                    if (token.type == RBRACKET_TO)
+                    function = searchST(&functions, token.stringValue);
+                    if (!function)
+                        function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, false, NULL});
+                    if ((function->data = allocBlock(NULL)) == NULL)
+                        return false;
+                }
+                //printf("data type: %d\n", function->dataType);
+                if (getToken(&token))
+                {
+                    if (token.type == LBRACKET_TO)
                     {
-                        getToken(&token);
-                        if (fBlockLL(function))
-                        {
-                            /*startIL(&((block_T *) function->data)->program);
-                            instruction_T *instr;
-                            do
+                        if (getToken(&token))
+                            if (parametrListLL(function))
                             {
-                                instr = getActiveIL(&((block_T *) function->data)->program);
-                                if (instr)
+                                if (token.type == RBRACKET_TO)
                                 {
-                                    int off1 = -1;
-                                    int off2 = -1;
-                                    int off3 = -1;
-                                    if (instr->destination)
-                                        off1 = (int) ((symbol_T *)instr->destination)->data;
-                                    if (instr->source1)
-                                        off2 = (int) ((symbol_T *)instr->source1)->data;
-                                    if (instr->source2)
-                                        off3 = (int) ((symbol_T *)instr->source2)->data;
-                                    printf("%d %d %d %d\n", instr->type, off1, off2, off3);
+                                    if (getToken(&token))
+                                        if (fBlockLL(function))
+                                        {
+                                            /*startIL(&((block_T *) function->data)->program);
+                                            instruction_T *instr;
+                                            do
+                                            {
+                                                instr = getActiveIL(&((block_T *) function->data)->program);
+                                                if (instr)
+                                                {
+                                                    int off1 = -1;
+                                                    int off2 = -1;
+                                                    int off3 = -1;
+                                                    if (instr->destination)
+                                                        off1 = (int) ((symbol_T *)instr->destination)->data;
+                                                    if (instr->source1)
+                                                        off2 = (int) ((symbol_T *)instr->source1)->data;
+                                                    if (instr->source2)
+                                                        off3 = (int) ((symbol_T *)instr->source2)->data;
+                                                    printf("%d %d %d %d\n", instr->type, off1, off2, off3);
+                                                }
+                                                nextIL(&((block_T *) function->data)->program);
+                                            }
+                                            while (instr);*/
+                                            return true;
+                                        }
                                 }
-                                nextIL(&((block_T *) function->data)->program);
+                                else
+                                    syntaxError(&token);
                             }
-                            while (instr);*/
-                            return true;
-                        }
                     }
                     else
                         syntaxError(&token);
                 }
+                
             }
             else
                 syntaxError(&token);
-            
         }
-        else
-            syntaxError(&token);
     }
     else
         syntaxError(&token);
@@ -271,16 +295,18 @@ bool parametrLL(symbol_T *function)
     {
         // PARAMETER -> type id
         dataType_T dataType = token.dataType;
-        getToken(&token);
-        if (token.type == ID_TO)
+        if (getToken(&token))
         {
-            int offset = ((block_T *) function->data)->symbols.count;
-            insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
-            getToken(&token);
-            return true;            
+            if (token.type == ID_TO)
+            {
+                int offset = ((block_T *) function->data)->symbols.count;
+                insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
+                if (getToken(&token))
+                    return true;            
+            }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else
         syntaxError(&token);
@@ -291,14 +317,14 @@ bool nextParameterListLL(symbol_T *function)
 {
     if (token.type == COMMA_TO)
     {
-        getToken(&token);
-        if (token.type == TYPE_TO)
-        {
-            // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
-            if (parametrLL(function))
-                if (nextParameterListLL(function))
-                    return true;
-        }
+        if (getToken(&token))
+            if (token.type == TYPE_TO)
+            {
+                // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
+                if (parametrLL(function))
+                    if (nextParameterListLL(function))
+                        return true;
+            }
     }
     else if (token.type == RBRACKET_TO)
     {
@@ -320,14 +346,16 @@ bool fBlockLL(symbol_T *function)
         if (blockLL(block))
         {
             insertLastIL(&block->program, (instruction_T){RETURN_I, NULL, NULL, NULL});
+            if (errorCode)
+                return false;
             return true;
         }
     }
     else if (token.type == SEMI_TO)
     {
         // FBLOCK -> ;
-        getToken(&token);
-        return true;
+        if (getToken(&token))
+            return true;
     }
     else
         syntaxError(&token);
@@ -339,17 +367,17 @@ bool blockLL(block_T *block)
     if (token.type == LCBRACKET_TO)
     {
         // BLOCK -> { STAT_LIST }
-        getToken(&token);
-        if (statListLL(block)) 
-        {
-            if (token.type == RCBRACKET_TO)
+        if (getToken(&token))
+            if (statListLL(block)) 
             {
-                getToken(&token);
-                return true;
+                if (token.type == RCBRACKET_TO)
+                {
+                    if (getToken(&token))
+                        return true;
+                }
+                else
+                    syntaxError(&token);
             }
-            else
-                syntaxError(&token);
-        }
     }
     else
         syntaxError(&token);
@@ -382,12 +410,16 @@ bool statLL(block_T *block)
     {
         // STAT -> BLOCK
         block_T *newBlock = allocBlock(NULL);
+        if (newBlock == NULL)
+            return false;
         instruction_T newInstruction;
         newInstruction.type = BLOCK_I;
         newInstruction.destination = newBlock;
         newInstruction.source1 = NULL;
         newInstruction.source2 = NULL;
         insertLastIL(&block->program, newInstruction);
+        if (errorCode)
+            return false;
         newBlock->symbols.parrent = &block->symbols;
         newBlock->symbols.count = block->symbols.count;
         newBlock->parrent = block;
@@ -406,86 +438,105 @@ bool statLL(block_T *block)
         if (symbol == NULL)
         {
             fprintf(stderr, "udefined symbol %s\n", token.stringValue);
+            errorCode = 3;
             return false;
         }
         newInstruction.destination = symbol;
-        getToken(&token);
-        if (token.type == ASSIGN_TO)
+        if (getToken(&token))
         {
-            void *expressionOutput = symbol;
-            getToken(&token);
-            if (rvalLL(block, &expressionOutput))
+            if (token.type == ASSIGN_TO)
             {
-                newInstruction.source1 = expressionOutput;
-                newInstruction.source2 = NULL;
-                if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
-                    ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) newInstruction.source1)->dataType;
-                if (((symbol_T *) newInstruction.destination)->dataType != ((symbol_T *) newInstruction.source1)->dataType)
-                    if (((symbol_T *) newInstruction.destination)->dataType == STRING_TY || ((symbol_T *) newInstruction.source1)->dataType == STRING_TY)
-                        fprintf(stderr, "bad conversion\n");
-                if (token.type == SEMI_TO)
-                {
-                    if (newInstruction.source1 != newInstruction.destination)
-                        insertLastIL(&block->program, newInstruction);
-                    getToken(&token);
-                    return true;
-                }
-                else
-                    syntaxError(&token);
+                void *expressionOutput = symbol;
+                if (getToken(&token))
+                    if (rvalLL(block, &expressionOutput))
+                    {
+                        newInstruction.source1 = expressionOutput;
+                        newInstruction.source2 = NULL;
+                        if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
+                            ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) newInstruction.source1)->dataType;
+                        if (((symbol_T *) newInstruction.destination)->dataType != ((symbol_T *) newInstruction.source1)->dataType)
+                            if (((symbol_T *) newInstruction.destination)->dataType == STRING_TY || ((symbol_T *) newInstruction.source1)->dataType == STRING_TY)
+                            {
+                                errorCode = 3;
+                                fprintf(stderr, "bad conversion\n");
+                                return false;
+                            }
+                        if (token.type == SEMI_TO)
+                        {
+                            if (newInstruction.source1 != newInstruction.destination)
+                            {
+                                insertLastIL(&block->program, newInstruction);
+                                if (errorCode)
+                                    return false;
+                            }
+                            if (getToken(&token))
+                                return true;
+                        }
+                        else
+                            syntaxError(&token);
+                    }
             }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type == IF_TO)
     {
         // STAT -> if ( EXPRESSION ) BLOCK else BLOCK
         instruction_T newInstruction;
         newInstruction.type = IF_I;
-        getToken(&token);
-        if (token.type == LBRACKET_TO)
+        if (getToken(&token))
         {
-            getToken(&token);
-            void *expressionOutput;
-            if (expression(block, &expressionOutput))
+            if (token.type == LBRACKET_TO)
             {
-                newInstruction.source1 = expressionOutput;
-                if (token.type == RBRACKET_TO)
-                {
-                    getToken(&token);
-                    block_T *newBlock = allocBlock(NULL);
-                    newBlock->parrent = block;
-                    newBlock->symbols.parrent = &block->symbols;
-                    newBlock->symbols.count = block->symbols.count;
-                    newInstruction.destination = newBlock;
-                    if (blockLL(newInstruction.destination))
+                void *expressionOutput;
+                if (getToken(&token))
+                    if (expression(block, &expressionOutput))
                     {
-                        block->symbols.count = newBlock->symbols.count;
-                        if (token.type == ELSE_TO)
+                        newInstruction.source1 = expressionOutput;
+                        if (token.type == RBRACKET_TO)
                         {
-                            getToken(&token);
-                            newBlock = allocBlock(NULL);
+                            block_T *newBlock = allocBlock(NULL);
+                            if (newBlock == NULL)
+                                return false;
                             newBlock->parrent = block;
                             newBlock->symbols.parrent = &block->symbols;
                             newBlock->symbols.count = block->symbols.count;
-                            newInstruction.source2 = newBlock;
-                            if (blockLL(newInstruction.source2))
-                            {
-                                block->symbols.count = newBlock->symbols.count;
-                                insertLastIL(&block->program, newInstruction);
-                                return true;
-                            }
+                            newInstruction.destination = newBlock;
+                            if (getToken(&token))
+                                if (blockLL(newInstruction.destination))
+                                {
+                                    block->symbols.count = newBlock->symbols.count;
+                                    if (token.type == ELSE_TO)
+                                    {
+                                        newBlock = allocBlock(NULL);
+                                        if (newBlock == NULL)
+                                            return false;
+                                        newBlock->parrent = block;
+                                        newBlock->symbols.parrent = &block->symbols;
+                                        newBlock->symbols.count = block->symbols.count;
+                                        newInstruction.source2 = newBlock;
+                                        if (getToken(&token))
+                                            if (blockLL(newInstruction.source2))
+                                            {
+                                                block->symbols.count = newBlock->symbols.count;
+                                                insertLastIL(&block->program, newInstruction);
+                                                if (errorCode)
+                                                    return false;
+                                                return true;
+                                            }
+                                    }
+                                    else
+                                        syntaxError(&token);
+                                }
                         }
                         else
                             syntaxError(&token);
                     }
-                }
-                else
-                    syntaxError(&token);
             }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type == FOR_TO)
     {
@@ -493,7 +544,11 @@ bool statLL(block_T *block)
         instruction_T newInstruction;
         newInstruction.type = BLOCK_I;
         block_T *newBlock = allocBlock(NULL);
+        if (newBlock == NULL)
+            return false;
         block_T *tempBlock = allocBlock(NULL);
+        if (tempBlock == NULL)
+            return false;
         newInstruction.destination = newBlock;
         newInstruction.source1 = NULL;
         newInstruction.source2 = NULL;
@@ -503,136 +558,152 @@ bool statLL(block_T *block)
         //printf("CO %d\n", block->symbols.count);
         newBlock->symbols.count = block->symbols.count;
         tempBlock->symbols.parrent = &newBlock->symbols;
-        getToken(&token);
-        if (token.type == LBRACKET_TO)
+        if (getToken(&token))
         {
-            getToken(&token);
-            if (declarationLL(newBlock))
+            if (token.type == LBRACKET_TO)
             {
-                unsigned int declarationLength = newBlock->program.count;
-                if (token.type == SEMI_TO)
-                {
-                    getToken(&token);
-                    void *expressionOutput;
-                    if (expression(newBlock, &expressionOutput))
+                if (getToken(&token))
+                    if (declarationLL(newBlock))
                     {
-                        insertLastIL(&newBlock->program, (instruction_T) {IF_NOT_BREAK_I, NULL, expressionOutput, NULL});
+                        unsigned int declarationLength = newBlock->program.count;
                         if (token.type == SEMI_TO)
                         {
                             getToken(&token);
-                            if (token.type == ID_TO)
+                            void *expressionOutput;
+                            if (expression(newBlock, &expressionOutput))
                             {
-                                symbol_T *symbol = searchST(&newBlock->symbols, token.stringValue);
-                                getToken(&token);
-                                if (token.type == ASSIGN_TO)
+                                insertLastIL(&newBlock->program, (instruction_T) {IF_NOT_BREAK_I, NULL, expressionOutput, NULL});
+                                if (errorCode)
+                                    return false;
+                                if (token.type == SEMI_TO)
                                 {
                                     getToken(&token);
-                                    tempBlock->symbols.count = newBlock->symbols.count;
-                                    if (expression(tempBlock, &expressionOutput))
+                                    if (token.type == ID_TO)
                                     {
-                                        newBlock->symbols.count = tempBlock->symbols.count;
-                                        if (symbol->dataType == AUTO_TY)
-                                            symbol->dataType = ((symbol_T *) expressionOutput)->dataType;
-                                        insertLastIL(&tempBlock->program, (instruction_T) {ASSIGN_I, symbol, expressionOutput, NULL});
-                                        if (token.type == RBRACKET_TO)
+                                        symbol_T *symbol = searchST(&newBlock->symbols, token.stringValue);
+                                        getToken(&token);
+                                        if (token.type == ASSIGN_TO)
                                         {
-                                            getToken(&token);
-                                            if (blockLL(newBlock))
-                                            {
-                                                block->symbols.count = newBlock->symbols.count;
-                                                startIL(&tempBlock->program);
-                                                instruction_T *instruction;
-                                                //printf("%d\n", tempBlock->program.count);
-                                                while (instruction = getActiveIL(&tempBlock->program))
+                                            tempBlock->symbols.count = newBlock->symbols.count;
+                                            if (getToken(&token))
+                                                if (expression(tempBlock, &expressionOutput))
                                                 {
-                                                    insertLastIL(&newBlock->program, *instruction);
-                                                    nextIL(&tempBlock->program);
+                                                    newBlock->symbols.count = tempBlock->symbols.count;
+                                                    if (symbol->dataType == AUTO_TY)
+                                                        symbol->dataType = ((symbol_T *) expressionOutput)->dataType;
+                                                    insertLastIL(&tempBlock->program, (instruction_T) {ASSIGN_I, symbol, expressionOutput, NULL});
+                                                    if (errorCode)
+                                                        return false;
+                                                    if (token.type == RBRACKET_TO)
+                                                    {
+                                                        if (getToken(&token))
+                                                            if (blockLL(newBlock))
+                                                            {
+                                                                block->symbols.count = newBlock->symbols.count;
+                                                                startIL(&tempBlock->program);
+                                                                instruction_T *instruction;
+                                                                //printf("%d\n", tempBlock->program.count);
+                                                                while (instruction = getActiveIL(&tempBlock->program))
+                                                                {
+                                                                    insertLastIL(&newBlock->program, *instruction);
+                                                                    if (errorCode)
+                                                                        return false;
+                                                                    nextIL(&tempBlock->program);
+                                                                }
+                                                                insertLastIL(&newBlock->program, (instruction_T) {JUMP_START_I, (void *) declarationLength, NULL, NULL});
+                                                                insertLastIL(&block->program, newInstruction);
+                                                                if (errorCode)
+                                                                    return false;
+                                                                return true;
+                                                            }
+                                                    }
+                                                    else
+                                                        syntaxError(&token);
                                                 }
-                                                insertLastIL(&newBlock->program, (instruction_T) {JUMP_START_I, (void *) declarationLength, NULL, NULL});
-                                                insertLastIL(&block->program, newInstruction);
-                                                return true;
-                                            }
                                         }
                                         else
                                             syntaxError(&token);
                                     }
+                                    else
+                                        syntaxError(&token);
                                 }
                                 else
                                     syntaxError(&token);
                             }
-                            else
-                                syntaxError(&token);
                         }
                         else
                             syntaxError(&token);
                     }
-                }
-                else
-                    syntaxError(&token);
-            }
-        }
-        else
-            syntaxError(&token);
-    }
-    else if (token.type == RETURN_TO)
-    {
-        // STAT -> return EXPRESSION ;
-        getToken(&token);
-        void *expressionOutput;
-        if (expression(block, &expressionOutput))
-        {
-            if (token.type == SEMI_TO)
-            {
-                insertLastIL(&block->program, (instruction_T) {RETURN_I, NULL, expressionOutput, NULL});
-                getToken(&token);
-                return true;
             }
             else
                 syntaxError(&token);
         }
     }
+    else if (token.type == RETURN_TO)
+    {
+        // STAT -> return EXPRESSION ;
+        void *expressionOutput;
+        if (getToken(&token))
+            if (expression(block, &expressionOutput))
+            {
+                if (token.type == SEMI_TO)
+                {
+                    insertLastIL(&block->program, (instruction_T) {RETURN_I, NULL, expressionOutput, NULL});
+                    if (errorCode)
+                        return false;
+                    if (getToken(&token))
+                        return true;
+                }
+                else
+                    syntaxError(&token);
+            }
+    }
     else if (token.type == CIN_TO)
     {
         // STAT -> cin >> IN_LIST ;
         //
-        getToken(&token);
-        if (token.type == IN_TO)
+        if (getToken(&token))
         {
-            getToken(&token);
-            if (inListLL(block))
+            if (token.type == IN_TO)
             {
-                if (token.type == SEMI_TO)
-                {
-                    getToken(&token);
-                    return true;
-                }
-                else
-                    syntaxError(&token);
+                if (getToken(&token))
+                    if (inListLL(block))
+                    {
+                        if (token.type == SEMI_TO)
+                        {
+                            if (getToken(&token))
+                                return true;
+                        }
+                        else
+                            syntaxError(&token);
+                    }
             }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type == COUT_TO)
     {
         // STAT -> cout << OUT_LIST ;
-        getToken(&token);
-        if (token.type == OUT_TO)
+        if (getToken(&token))
         {
-            getToken(&token);
-            if (outListLL(block))
+            if (token.type == OUT_TO)
             {
-                if (token.type == SEMI_TO)
-                {
-                    getToken(&token);
-                    return true;
-                }
-                else
-                    syntaxError(&token);
+                if (getToken(&token))
+                    if (outListLL(block))
+                    {
+                        if (token.type == SEMI_TO)
+                        {
+                            if (getToken(&token))
+                                return true;
+                        }
+                        else
+                            syntaxError(&token);
+                    }
             }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type == TYPE_TO)
     {
@@ -642,8 +713,8 @@ bool statLL(block_T *block)
         {
             if (token.type == SEMI_TO)
             {
-                getToken(&token);
-                return true;
+                if (getToken(&token))
+                    return true;
             }
             else
                 syntaxError(&token);
@@ -661,30 +732,45 @@ bool declarationLL(block_T *block)
         // DECLARATION -> type id DEFINITION
         symbol_T *symbol;
         dataType_T dataType = token.dataType;
-        getToken(&token);
-        if (token.type == ID_TO)
+        if (getToken(&token))
         {
-            //printf("CO %d\n", block->symbols.count);
-            int offset = block->symbols.count;
-            symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
-            //printf("%s %p offset %d\n",token.stringValue, symbol, offset);
-            getToken(&token);
-            void *value;
-            if (definitionLL(block, &value))
+            if (token.type == ID_TO)
             {
-                if (value)
-                {
-                    instruction_T newInstruction;
-                    newInstruction.type = ASSIGN_I; 
-                    newInstruction.destination = symbol;
-                    if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
-                        ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) value)->dataType;
-                    newInstruction.source1 = value;
-                    newInstruction.source2 = NULL;
-                    insertLastIL(&block->program, newInstruction);
-                }
-                return true;
+                //printf("CO %d\n", block->symbols.count);
+                int offset = block->symbols.count;
+                symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
+                //printf("%s %p offset %d\n",token.stringValue, symbol, offset);
+                void *value = NULL;
+                if (getToken(&token))
+                    if (definitionLL(block, &value))
+                    {
+                        if (symbol->dataType == AUTO_TY)
+                        {
+                            if (value)
+                                symbol->dataType = ((symbol_T *) value)->dataType;
+                            else
+                            {
+                                errorCode = 5;
+                                fprintf(stderr, "auto error\n");
+                                return false;
+                            }
+                        }
+                        if (value)
+                        {
+                            instruction_T newInstruction;
+                            newInstruction.type = ASSIGN_I; 
+                            newInstruction.destination = symbol;
+                            newInstruction.source1 = value;
+                            newInstruction.source2 = NULL;
+                            insertLastIL(&block->program, newInstruction);
+                            if (errorCode)
+                                return false;
+                        }
+                        return true;
+                    }
             }
+            else
+                syntaxError(&token);
         }
     }
     else
@@ -697,9 +783,9 @@ bool definitionLL(block_T *block, void **value)
     if (token.type == ASSIGN_TO)
     {
         // DEFINITION -> = EXPRESSION
-        getToken(&token);
-        if (expression(block, value))
-            return true;
+        if (getToken(&token))
+            if (expression(block, value))
+                return true;
     }
     else if (token.type == SEMI_TO)
     {
@@ -726,6 +812,8 @@ bool outListLL(block_T *block)
             newInstruction.source1 = outputOperand;
             newInstruction.source2 = NULL;
             insertLastIL(&block->program, newInstruction);
+            if (errorCode)
+                return false;
             if (nextOutListLL(block))
                 return true;
         }
@@ -743,16 +831,18 @@ bool nextOutListLL(block_T *block)
         void *outputOperand;
         instruction_T newInstruction;
         newInstruction.type = PRINT_I;
-        getToken(&token);
-        if (callParameterLL(block, &outputOperand))
-        {
-            newInstruction.destination = NULL;
-            newInstruction.source1 = outputOperand;
-            newInstruction.source2 = NULL;
-            insertLastIL(&block->program, newInstruction);
-            if (nextOutListLL(block))
-                return true;
-        }
+        if (getToken(&token))
+            if (callParameterLL(block, &outputOperand))
+            {
+                newInstruction.destination = NULL;
+                newInstruction.source1 = outputOperand;
+                newInstruction.source2 = NULL;
+                insertLastIL(&block->program, newInstruction);
+                if (errorCode)
+                    return false;
+                if (nextOutListLL(block))
+                    return true;
+            }
     }
     else if (token.type == SEMI_TO)
     {
@@ -774,6 +864,7 @@ bool inListLL(block_T *block)
         symbol_T *symbol = searchST(&block->symbols, token.stringValue);
         if (symbol == NULL)
         {
+            errorCode = 3;
             fprintf(stderr, "udefined symbol %s\n", token.stringValue);
             return false;
         }
@@ -781,9 +872,11 @@ bool inListLL(block_T *block)
         newInstruction.source1 = NULL;
         newInstruction.source2 = NULL;
         insertLastIL(&block->program, newInstruction);
-        getToken(&token);
-        if (nextInListLL(block))
-            return true;
+        if (errorCode)
+            return false;
+        if (getToken(&token))
+            if (nextInListLL(block))
+                return true;
     }
     else
         syntaxError(&token);
@@ -795,27 +888,32 @@ bool nextInListLL(block_T *block)
     if (token.type == IN_TO)
     {
         // NEXT_IN_LIST -> >> id NEXT_IN_LIST
-        getToken(&token);
-        if (token.type == ID_TO)
+        if (getToken(&token))
         {
-            instruction_T newInstruction;
-            newInstruction.type = SCAN_I;
-            symbol_T *symbol = searchST(&block->symbols, token.stringValue);
-            if (symbol == NULL)
+            if (token.type == ID_TO)
             {
-                fprintf(stderr, "udefined symbol %s\n", token.stringValue);
-                return false;
+                instruction_T newInstruction;
+                newInstruction.type = SCAN_I;
+                symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+                if (symbol == NULL)
+                {
+                    errorCode = 3;
+                    fprintf(stderr, "udefined symbol %s\n", token.stringValue);
+                    return false;
+                }
+                newInstruction.destination = symbol;
+                newInstruction.source1 = NULL;
+                newInstruction.source2 = NULL;
+                insertLastIL(&block->program, newInstruction);
+                if (errorCode)
+                    return false;
+                if (getToken(&token))
+                    if (nextInListLL(block))
+                        return true;
             }
-            newInstruction.destination = symbol;
-            newInstruction.source1 = NULL;
-            newInstruction.source2 = NULL;
-            insertLastIL(&block->program, newInstruction);
-            getToken(&token);
-            if (nextInListLL(block))
-                return true;
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type == SEMI_TO)
     {
@@ -834,42 +932,56 @@ bool rvalLL(block_T *block, void **value)
     if (token.type == ID_TO)
     {
         if (function = searchST(&functions, token.stringValue))
-            token.type = ID_TO - 1;
+        {
+            if (function->defined)
+                token.type = ID_TO - 1;
+            else
+            {
+                errorCode = 3;
+                return false;
+            }
+        }
         //printf("%p\n", function);
     }
     if (token.type == ID_TO - 1) // == FID
     {
         // RVAL -> fid ( CALL_PARAMETER_LIST )
-        getToken(&token);
-        if (token.type == LBRACKET_TO)
+        if (getToken(&token))
         {
-            insertLastIL(&block->program, (instruction_T) {NEW_FRAME_I, function->data, NULL, NULL});
-            getToken(&token);
-            if (callParameterListLL(block))
+            if (token.type == LBRACKET_TO)
             {
-                if (token.type == RBRACKET_TO)
-                {
-                    instType_T istrType = CALL_I;
-                    if (function->type == FUNCTION_ST + 1)
-                        istrType = SORT_I;
-                    if (function->type == FUNCTION_ST + 2)
-                        istrType = LENGTH_I;
-                    if (function->type == FUNCTION_ST + 3)
-                        istrType = CONCAT_I;
-                    if (function->type == FUNCTION_ST + 4)
-                        istrType = SUBSTRING_I;
-                    if (function->type == FUNCTION_ST + 5)
-                        istrType = FIND_I;
-                    insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
-                    getToken(&token);
-                    return true;
-                }
-                else
-                    syntaxError(&token);
+                insertLastIL(&block->program, (instruction_T) {NEW_FRAME_I, function->data, NULL, NULL});
+                if (errorCode)
+                    return false;
+                if (getToken(&token))
+                    if (callParameterListLL(block))
+                    {
+                        if (token.type == RBRACKET_TO)
+                        {
+                            instType_T istrType = CALL_I;
+                            if (function->type == FUNCTION_ST + 1)
+                                istrType = SORT_I;
+                            if (function->type == FUNCTION_ST + 2)
+                                istrType = LENGTH_I;
+                            if (function->type == FUNCTION_ST + 3)
+                                istrType = CONCAT_I;
+                            if (function->type == FUNCTION_ST + 4)
+                                istrType = SUBSTRING_I;
+                            if (function->type == FUNCTION_ST + 5)
+                                istrType = FIND_I;
+                            insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
+                            if (errorCode)
+                                return false;
+                            if (getToken(&token))
+                                return true;
+                        }
+                        else
+                            syntaxError(&token);
+                    }
             }
+            else
+                syntaxError(&token);
         }
-        else
-            syntaxError(&token);
     }
     else if (token.type >= ID_TO && token.type <= RBRACKET_TO)
     {
@@ -906,10 +1018,10 @@ bool nextCallParameterLL(block_T *block)
     if (token.type == COMMA_TO)
     {
         // NEXT_CALL_PARAMETER_LIST -> , CALL_PARAMETER NEXT_CALL_PARAMETER_LIST
-        getToken(&token);
-        if (callParameterLL(block, NULL))
-            if (nextCallParameterLL(block))
-                return true;
+        if (getToken(&token))
+            if (callParameterLL(block, NULL))
+                if (nextCallParameterLL(block))
+                    return true;
     }
     else if (token.type == RBRACKET_TO)
     {
@@ -929,15 +1041,20 @@ bool callParameterLL(block_T *block, void **value)
         symbol_T *symbol = searchST(&block->symbols, token.stringValue);
         if (symbol == NULL)
         {
+            errorCode = 3;
             fprintf(stderr, "udefined symbol %s\n", token.stringValue);
             return false;
         }
         if (value)
             *value = symbol;
         else
+        {
             insertLastIL(&block->program, (instruction_T) {SET_PARAMETR_I, NULL, symbol, NULL});
-        getToken(&token);
-        return true;
+            if (errorCode)
+                return false;
+        }
+        if (getToken(&token))
+            return true;
     }
     else if (token.type >= INT_TO && token.type <= STRING_TO)
     {
@@ -960,12 +1077,18 @@ bool callParameterLL(block_T *block, void **value)
                 break;
         }
         pushPS(&constants, newConstant);
-        getToken(&token);
-        if (value)
-            *value = newConstant;
-        else
-            insertLastIL(&block->program, (instruction_T) {SET_PARAMETR_I, NULL, newConstant, NULL});
-        return true;
+        if (getToken(&token))
+        {
+            if (value)
+                *value = newConstant;
+            else
+            {
+                insertLastIL(&block->program, (instruction_T) {SET_PARAMETR_I, NULL, newConstant, NULL});
+                if (errorCode)
+                    return false;
+            }
+            return true;
+        }
     }
     else
         syntaxError(&token);
@@ -1033,6 +1156,7 @@ bool expression(block_T *block, void **value)
                     symbol_T *symbol = searchST(&block->symbols, token.stringValue);
                     if (symbol == NULL)
                     {
+                        errorCode = 3;
                         fprintf(stderr, "udefined symbol %s\n", token.stringValue);
                         return false;
                     }
@@ -1065,7 +1189,8 @@ bool expression(block_T *block, void **value)
                     pushPS(&stack, (void *) token.type);
                 }
                 bracketSucess = true;
-                getToken(&token);
+                if (!getToken(&token))
+                    return false;
                 break;
             }
             case RIGHT_PR:  // >
@@ -1105,6 +1230,7 @@ bool expression(block_T *block, void **value)
                             else if (source1->dataType == STRING_TY || source2->dataType == STRING_TY)
                             {    
                                 fprintf(stderr, "bad operrand type\n");
+                                errorCode = 4;
                                 return false;
                             }
                         }
@@ -1113,6 +1239,7 @@ bool expression(block_T *block, void **value)
                             if (source1->dataType != source2->dataType && (source1->dataType == STRING_TY || source2->dataType == STRING_TY))
                             {
                                 fprintf(stderr, "bad operrand type\n");
+                                errorCode = 4;
                                 return false;
                             }   
                         }
@@ -1126,6 +1253,8 @@ bool expression(block_T *block, void **value)
                         //if (newInstruction.type == EQ_I)
                         //    printf("E %p %p\n", newInstruction.source1, newInstruction.source2);
                         insertLastIL(&block->program, newInstruction);
+                        if (errorCode)
+                            return false;
                     }
                     popPS(&stack);
                 }
@@ -1136,7 +1265,8 @@ bool expression(block_T *block, void **value)
             case EQUAL_PR:  // =
             {
                 pushPS(&stack, (void *) token.type);
-                getToken(&token);
+                if (!getToken(&token))
+                    return false;
                 break;
             }
             case SUCESS_PR: // S

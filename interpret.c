@@ -589,10 +589,12 @@ int interpret(block_T *b)
                 switch (destinationType)
                 {
                     case INT_TY:
-                        scanf("%d", &destination->intValue);
+                        if (scanf("%d", &destination->intValue) != 1)
+                            return 7;
                         break;
                     case DOUBLE_TY:
-                        scanf("%lf", &destination->doubleValue);
+                        if (scanf("%lf", &destination->doubleValue) != 1)
+                            return 7;
                         break;
                     case STRING_TY:
                     {
