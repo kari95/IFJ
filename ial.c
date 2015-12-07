@@ -21,8 +21,8 @@ int parti(char a[],int p, int r)
     char x = a[r];
     int i = p-1;
     int j;
-    char *c;
-    char *d;
+    char c;
+    char d;
     for (j = p; j < r; j++){
         if (a[j]<=x){
             i++;
@@ -165,7 +165,7 @@ symbol_T *insertST(symbolTable_T *table, char *key, symbol_T data)
         if (strcmp(key, item->key) == 0)
             itemData = &item->data;
     }
-    symbolTableItem_T *item;
+    symbolTableItem_T *item = NULL;
     if (itemData == NULL)
     {
         item = malloc(sizeof(symbolTableItem_T) + strlen(key) + 1);

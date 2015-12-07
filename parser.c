@@ -140,10 +140,12 @@ int parse(FILE *programFile, block_T *block)
     initPS(&constants);
 
     if (getToken(&token))
+    {
         programLL(); // starting nonterminal
+        if (!function->defined)
+            errorCode = 3;
+    }
         
-    if (!function->defined)
-        errorCode = 3;
     // !destruction
     return errorCode;
 }
@@ -192,7 +194,7 @@ bool functionLL()
                 {
                     function = searchST(&functions, token.stringValue);
                     if (!function)
-                        function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, false, NULL});
+                        function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, false, {.data = NULL}});
                     if ((function->data = allocBlock(NULL)) == NULL)
                         return false;
                 }
@@ -208,30 +210,7 @@ bool functionLL()
                                 {
                                     if (getToken(&token))
                                         if (fBlockLL(function))
-                                        {
-                                            /*startIL(&((block_T *) function->data)->program);
-                                            instruction_T *instr;
-                                            do
-                                            {
-                                                instr = getActiveIL(&((block_T *) function->data)->program);
-                                                if (instr)
-                                                {
-                                                    int off1 = -1;
-                                                    int off2 = -1;
-                                                    int off3 = -1;
-                                                    if (instr->destination)
-                                                        off1 = (int) ((symbol_T *)instr->destination)->data;
-                                                    if (instr->source1)
-                                                        off2 = (int) ((symbol_T *)instr->source1)->data;
-                                                    if (instr->source2)
-                                                        off3 = (int) ((symbol_T *)instr->source2)->data;
-                                                    printf("%d %d %d %d\n", instr->type, off1, off2, off3);
-                                                }
-                                                nextIL(&((block_T *) function->data)->program);
-                                            }
-                                            while (instr);*/
                                             return true;
-                                        }
                                 }
                                 else
                                     syntaxError(&token);
@@ -603,7 +582,7 @@ bool statLL(block_T *block)
                                                                 startIL(&tempBlock->program);
                                                                 instruction_T *instruction;
                                                                 //printf("%d\n", tempBlock->program.count);
-                                                                while (instruction = getActiveIL(&tempBlock->program))
+                                                                while ((instruction = getActiveIL(&tempBlock->program)) != NULL)
                                                                 {
                                                                     insertLastIL(&newBlock->program, *instruction);
                                                                     if (errorCode)
@@ -931,9 +910,9 @@ bool rvalLL(block_T *block, void **value)
     //printf("%d\n", token.type);
     if (token.type == ID_TO)
     {
-        if (function = searchST(&functions, token.stringValue))
+        if ((function = searchST(&functions, token.stringValue)) != NULL)
         {
-            if (function->defined)
+            if (function->defined) 
                 token.type = ID_TO - 1;
             else
             {
@@ -943,7 +922,7 @@ bool rvalLL(block_T *block, void **value)
         }
         //printf("%p\n", function);
     }
-    if (token.type == ID_TO - 1) // == FID
+    if (token.type == (unsigned int) ID_TO - 1) // == FID
     {
         // RVAL -> fid ( CALL_PARAMETER_LIST )
         if (getToken(&token))
@@ -1073,7 +1052,8 @@ bool callParameterLL(block_T *block, void **value)
                 break;
             case STRING_TO:
                 newConstant->stringValue = allocString(token.stringValue, 0);
-
+                break;
+            default:
                 break;
         }
         pushPS(&constants, newConstant);
@@ -1179,6 +1159,8 @@ bool expression(block_T *block, void **value)
                         case STRING_TO:
                             newConstant->stringValue = allocString(token.stringValue, 0);
                             break;
+                        default:
+                            break;
                     }
                     pushPS(&constants, newConstant);
                     pushPS(&operandStack, (void *) newConstant);
@@ -1204,14 +1186,14 @@ bool expression(block_T *block, void **value)
                         newInstruction.type = top;
                         symbol_T *source1;
                         symbol_T *source2;
-                        if ((source2 = topPS(&operandStack)) != EOF_TO)
+                        if ((source2 = topPS(&operandStack)) != (void *) EOF_TO)
                             popPS(&operandStack);
                         else
                         {
                             syntaxError(&token);
                             return false;
                         }
-                        if ((source1 = topPS(&operandStack)) != EOF_TO)
+                        if ((source1 = topPS(&operandStack)) != (void *) EOF_TO)
                             popPS(&operandStack);
                         else
                         {

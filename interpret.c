@@ -32,7 +32,7 @@ frame_T *allocFrame(block_T *block)
     unsigned int size = block->symbols.count;
     //printf("size %d\n",size );
     frame_T *frame = malloc(sizeof(frame_T) * size);
-    for (int i = 0; i < size; ++i)
+    for (unsigned int i = 0; i < size; ++i)
     {
         frame[i].intValue = 0;
     }
@@ -74,7 +74,7 @@ int interpret(block_T *b)
         if (!instruction)
         {
             //free(block);
-            if (block = topPS(&blockStack))
+            if ((block = topPS(&blockStack)) != NULL)
             {
                 instruction = topPS(&instructionStack);
                 popPS(&blockStack);
@@ -97,7 +97,7 @@ int interpret(block_T *b)
                 if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
                     source1 = &frame[(int) ((symbol_T *)instruction->source1)->data];
                 else
-                    source1 = &((symbol_T *)instruction->source1)->data;
+                    source1 = (frame_T *)&((symbol_T *)instruction->source1)->data;
                 source1Type = ((symbol_T *)instruction->source1)->dataType;
             }
             if (instruction->type != ASSIGN_I && instruction->type != PRINT_I && instruction->type != SCAN_I)
@@ -105,7 +105,7 @@ int interpret(block_T *b)
                 if (((symbol_T *)instruction->source2)->type == VARIABLE_ST)
                     source2 = &frame[(int) ((symbol_T *)instruction->source2)->data];
                 else
-                    source2 = &((symbol_T *)instruction->source2)->data;
+                    source2 = (frame_T *)&((symbol_T *)instruction->source2)->data;
                 source2Type = ((symbol_T *)instruction->source2)->dataType;
             }
             //if (instruction->type >= G_I && instruction->type <= NEQ_I)
@@ -573,10 +573,12 @@ int interpret(block_T *b)
                         printf("%d", source1->intValue);
                         break;
                     case DOUBLE_TY:
-                        printf("%f", source1->doubleValue);
+                        printf("%g", source1->doubleValue);
                         break;
                     case STRING_TY:
                         printf("%s", source1->stringValue);
+                        break;
+                    default:
                         break;
                 }
                 break;
@@ -626,8 +628,12 @@ int interpret(block_T *b)
                         destination->stringValue = tempString.data;
                         break;
                     }
+                    default:
+                        break;
                 }
                 break;
+                default:
+                    break;
             }
         }
     }

@@ -110,7 +110,7 @@ instruction_T *getNextIL(instList_T *list, instruction_T *instruction)
 {
     if (instruction)
     {
-        return ((instListItem_T *) instruction)->right;
+        return &((instListItem_T *) instruction)->right->data;
     }
     else
         return &list->head->data;
