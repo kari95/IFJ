@@ -140,11 +140,9 @@ int parse(FILE *programFile, block_T *block)
     initPS(&constants);
 
     if (getToken(&token))
-    {
-        programLL(); // starting nonterminal
-        if (!function->defined)
-            errorCode = 3;
-    }
+        if (programLL()) // starting nonterminal
+            if (!function->defined)
+                errorCode = 3;
         
     // !destruction
     return errorCode;
