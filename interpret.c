@@ -164,7 +164,10 @@ int interpret(block_T *b)
             {
                 //fprintf(stderr,"lengtg %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
-                oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = strlen(frame[0].stringValue);
+                if (((symbol_T *) instruction->source1)->dataType == INT_TY)
+                    oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = strlen(frame[0].stringValue);
+                else
+                    oldFrame[((symbol_T *) instruction->source1)->intValue].doubleValue = (double) strlen(frame[0].stringValue);
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
@@ -174,7 +177,10 @@ int interpret(block_T *b)
             {
                 //fprintf(stderr,"find %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
-                oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = find(frame[0].stringValue, frame[1].stringValue);
+                if (((symbol_T *) instruction->source1)->dataType == INT_TY)
+                    oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = find(frame[0].stringValue, frame[1].stringValue);
+                else
+                    oldFrame[((symbol_T *) instruction->source1)->intValue].doubleValue = (double) find(frame[0].stringValue, frame[1].stringValue);
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
