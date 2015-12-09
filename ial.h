@@ -53,6 +53,7 @@ typedef struct symbolTable {
 typedef struct {
     symbolType_T type;
     dataType_T dataType;
+    int count;
     bool defined;
     union {
         int intValue;
@@ -77,7 +78,8 @@ void destroyST(symbolTable_T *table);
 
 // search in 'table' by the 'key'
 // return data of table item 
-symbol_T *searchST(symbolTable_T *table, char *key);
+// recursive means that symbol will be search in parrent tables
+symbol_T *searchST(symbolTable_T *table, char *key, bool recursive);
 
 // insert in to 'table' item with 'data' and 'key'
 // if 'key' exist, will be 'data' updated

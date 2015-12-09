@@ -68,9 +68,9 @@ static bool programLL();
 static bool functionListLL();
 static bool functionLL();
 static bool nextFunctionListLL();
-static bool parametrListLL(symbol_T *function);
-static bool parametrLL(symbol_T *function);
-static bool nextParameterListLL(symbol_T *function);
+static bool parametrListLL(symbol_T *function, bool firstTime);
+static bool parametrLL(symbol_T *function, bool firstTime, int *number);
+static bool nextParameterListLL(symbol_T *function, bool firstTime, int *number);
 static bool fBlockLL(symbol_T *function);
 static bool blockLL(block_T *block);
 static bool statListLL(block_T *block);
@@ -82,9 +82,9 @@ static bool nextOutListLL(block_T *block);
 static bool inListLL(block_T *block);
 static bool nextInListLL(block_T *block);
 static bool rvalLL(block_T *block, void **value);
-static bool callParameterListLL(block_T *block);
-static bool callParameterLL(block_T *block, void **value);
-static bool nextCallParameterLL(block_T *block);
+static bool callParameterListLL(block_T *block, symbol_T *function);
+static bool callParameterLL(block_T *block, void **value, int *number, symbol_T *function);
+static bool nextCallParameterLL(block_T *block, int *number, symbol_T *function);
 
 // precedent analysis for expression processing
 static bool expression(block_T *block, void **value);
@@ -109,11 +109,30 @@ static void syntaxError(token_T *token)
     errorCode = 2; // syntax error
 }
 
-// print syntax error to stderr
-static void definitionError(token_T *token, char* name)
+// biuld in functions creating
+void insertBuildIn(symbol_T *function)
 {
-    fprintf(stderr, "%u:%u: sematic error with %s definition\n", token->row, token->col, name);
-    errorCode = 2; // syntax error
+    block_T *block = allocBlock(NULL);
+    insertST(&functions, "substr", (symbol_T) {FUNCTION_ST + 4, STRING_TY, 3, true, {.data = block}}); // string substr(string s, int i, int n)
+    insertST(&block->symbols, "$$0", (symbol_T){VARIABLE_ST, STRING_TY, 0, false, {.intValue = 0}});
+    insertST(&block->symbols, "$$1", (symbol_T){VARIABLE_ST, INT_TY, 0, false, {.intValue = 1}});
+    insertST(&block->symbols, "$$2", (symbol_T){VARIABLE_ST, INT_TY, 0, false, {.intValue = 2}});
+
+    block = allocBlock(NULL);
+    insertST(&functions, "length", (symbol_T) {FUNCTION_ST + 2, INT_TY, 1, true, {.data = block}});    // int length(string s)
+    insertST(&block->symbols, "$$0", (symbol_T){VARIABLE_ST, STRING_TY, 0, false, {.intValue = 0}});
+    
+    block = allocBlock(NULL);
+    insertST(&functions, "sort", (symbol_T) {FUNCTION_ST + 1, STRING_TY, 1, true, {.data = block}});   // string sort(string s)
+    
+    block = allocBlock(NULL);
+    insertST(&functions, "find", (symbol_T) {FUNCTION_ST + 5, INT_TY, 2, true, {.data = block}});      // int find(string s, string search)
+    insertST(&block->symbols, "$$0", (symbol_T){VARIABLE_ST, STRING_TY, 0, false, {.intValue = 0}});
+    
+    block = allocBlock(NULL);
+    insertST(&functions, "concat", (symbol_T) {FUNCTION_ST + 3, STRING_TY, 2, true, {.data = block}}); // string concat(string s1, string s2)
+    insertST(&block->symbols, "$$0", (symbol_T){VARIABLE_ST, STRING_TY, 0, false, {.intValue = 0}});
+    insertST(&block->symbols, "$$1", (symbol_T){VARIABLE_ST, STRING_TY, 0, false, {.intValue = 1}});
 }
 
 // parse 'programFile' an generate list of instructions 'program'
@@ -125,17 +144,8 @@ int parse(FILE *programFile, block_T *block)
     allocBlock(block);
 
     // insert main function to table of functions
-    symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, false, {.data = block}});
-    insertST(&functions, "sort", (symbol_T) {FUNCTION_ST + 1, STRING_TY, true, {.data = block}});   // string sort(string s)
-    insertST(&functions, "length", (symbol_T) {FUNCTION_ST + 2, INT_TY, true, {.data = block}});    // int length(string s)
-    insertST(&functions, "concat", (symbol_T) {FUNCTION_ST + 3, STRING_TY, true, {.data = block}}); // string concat(string s1, string s2)
-    insertST(&functions, "substr", (symbol_T) {FUNCTION_ST + 4, STRING_TY, true, {.data = block}}); // string substr(string s, int i, int n)
-    insertST(&functions, "find", (symbol_T) {FUNCTION_ST + 5, INT_TY, true, {.data = block}});      // int find(string s, string search)
-
-    // for parameters for build-in functions
-    insertST(&block->symbols, "$$BI1", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 0}});
-    insertST(&block->symbols, "$$BI2", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 1}});
-    insertST(&block->symbols, "$$BI3", (symbol_T){VARIABLE_ST, STRING_TY, false, {.intValue = 2}});
+    symbol_T *function =  insertST(&functions, "main", (symbol_T) {FUNCTION_ST, INT_TY, 0, false, {.data = block}});
+    insertBuildIn(function);
 
     initPS(&constants);
 
@@ -187,14 +197,23 @@ bool functionLL()
         {
             if (token.type == ID_TO)
             {
-                function = searchST(&functions, token.stringValue);
-                if (function == NULL)
+                bool firstTime = true;
+                function = searchST(&functions, token.stringValue, true);
+                if (!function)
                 {
-                    function = searchST(&functions, token.stringValue);
-                    if (!function)
-                        function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, false, {.data = NULL}});
+                    function = insertST(&functions, token.stringValue, (symbol_T){FUNCTION_ST, dataType, 0, false, {.data = NULL}});
                     if ((function->data = allocBlock(NULL)) == NULL)
                         return false;
+                }
+                else
+                {
+                    firstTime = false;
+                    if (function->dataType != dataType)
+                    {
+                        errorCode = 3;
+                        fprintf(stderr, "return code of function %s is not same as in previous declaration\n", token.stringValue);
+                        return false;
+                    }
                 }
                 //printf("data type: %d\n", function->dataType);
                 if (getToken(&token))
@@ -202,7 +221,7 @@ bool functionLL()
                     if (token.type == LBRACKET_TO)
                     {
                         if (getToken(&token))
-                            if (parametrListLL(function))
+                            if (parametrListLL(function, firstTime))
                             {
                                 if (token.type == RBRACKET_TO)
                                 {
@@ -247,14 +266,23 @@ bool nextFunctionListLL()
     return false;
 }
 
-bool parametrListLL(symbol_T *function)
+bool parametrListLL(symbol_T *function, bool firstTime)
 {
     if (token.type == TYPE_TO)
     {
+        int parameterNumber = 0;
         // PARAMETER_LIST -> PARAMETER NEXT_PARAMETER_LIST
-        if (parametrLL(function))
-            if (nextParameterListLL(function))
+        if (parametrLL(function, firstTime, &parameterNumber))
+            if (nextParameterListLL(function, firstTime, &parameterNumber))
+            {
+                if (parameterNumber != function->count)
+                {
+                    errorCode = 3;
+                    fprintf(stderr, "difirent parameter count\n");
+                    return false;
+                }
                 return true;
+            }
     }
     else if (token.type == RBRACKET_TO)
     {
@@ -266,7 +294,7 @@ bool parametrListLL(symbol_T *function)
     return false;
 }
 
-bool parametrLL(symbol_T *function)
+bool parametrLL(symbol_T *function, bool firstTime, int *number)
 {
     if (token.type == TYPE_TO)
     {
@@ -276,8 +304,28 @@ bool parametrLL(symbol_T *function)
         {
             if (token.type == ID_TO)
             {
-                int offset = ((block_T *) function->data)->symbols.count;
-                insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
+                char tempName[10];
+                sprintf(tempName, "$$%d",  *number);
+                int offset = (*number)++;
+                //printf("%d %d\n", *number, offset);
+                if (!firstTime)
+                {
+                    symbol_T *symbol;
+                    symbol_T *symbol2;
+                    if ((symbol = searchST(&((block_T *) function->data)->symbols, token.stringValue, false)) == NULL || symbol->dataType != dataType\
+                        || (symbol2 = searchST(&((block_T *) function->data)->symbols, tempName, false)) == NULL || symbol->intValue != symbol2->intValue)
+                    {
+                        errorCode = 3;
+                        fprintf(stderr, "bad argument %s of function\n", token.stringValue);
+                        return false;
+                    }
+                }
+                else
+                {
+                    insertST(&((block_T *) function->data)->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, 0, false, {.intValue = offset}});
+                    insertST(&((block_T *) function->data)->symbols, tempName, (symbol_T){VARIABLE_ST, dataType, 0, false, {.intValue = offset}});
+                    function->count++;
+                }
                 if (getToken(&token))
                     return true;            
             }
@@ -290,7 +338,7 @@ bool parametrLL(symbol_T *function)
     return false;
 }
 
-bool nextParameterListLL(symbol_T *function)
+bool nextParameterListLL(symbol_T *function, bool firstTime, int *number)
 {
     if (token.type == COMMA_TO)
     {
@@ -298,8 +346,8 @@ bool nextParameterListLL(symbol_T *function)
             if (token.type == TYPE_TO)
             {
                 // NEXT_PARAMETER_LIST -> , PARAMETER NEXT_PARAMETER_LIST
-                if (parametrLL(function))
-                    if (nextParameterListLL(function))
+                if (parametrLL(function, firstTime, number))
+                    if (nextParameterListLL(function, firstTime, number))
                         return true;
             }
     }
@@ -318,6 +366,11 @@ bool fBlockLL(symbol_T *function)
     if (token.type == LCBRACKET_TO)
     {
         // FBLOCK -> BLOCK
+        if (function->defined)
+        {
+            errorCode = 3;
+            fprintf(stderr, "redefinition of function\n");
+        }
         function->defined = true;
         block_T *block = function->data;
         if (blockLL(block))
@@ -411,7 +464,7 @@ bool statLL(block_T *block)
         // STAT -> id = RVAL ;
         instruction_T newInstruction;
         newInstruction.type = ASSIGN_I;
-        symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+        symbol_T *symbol = searchST(&block->symbols, token.stringValue, true);
         if (symbol == NULL)
         {
             fprintf(stderr, "udefined symbol %s\n", token.stringValue);
@@ -431,13 +484,6 @@ bool statLL(block_T *block)
                         newInstruction.source2 = NULL;
                         if (((symbol_T *) newInstruction.destination)->dataType == AUTO_TY)
                             ((symbol_T *) newInstruction.destination)->dataType = ((symbol_T *) newInstruction.source1)->dataType;
-                        if (((symbol_T *) newInstruction.destination)->dataType != ((symbol_T *) newInstruction.source1)->dataType)
-                            if (((symbol_T *) newInstruction.destination)->dataType == STRING_TY || ((symbol_T *) newInstruction.source1)->dataType == STRING_TY)
-                            {
-                                errorCode = 3;
-                                fprintf(stderr, "bad conversion\n");
-                                return false;
-                            }
                         if (token.type == SEMI_TO)
                         {
                             if (newInstruction.source1 != newInstruction.destination)
@@ -557,7 +603,7 @@ bool statLL(block_T *block)
                                     getToken(&token);
                                     if (token.type == ID_TO)
                                     {
-                                        symbol_T *symbol = searchST(&newBlock->symbols, token.stringValue);
+                                        symbol_T *symbol = searchST(&newBlock->symbols, token.stringValue, true);
                                         getToken(&token);
                                         if (token.type == ASSIGN_TO)
                                         {
@@ -715,7 +761,14 @@ bool declarationLL(block_T *block)
             {
                 //printf("CO %d\n", block->symbols.count);
                 int offset = block->symbols.count;
-                symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, false, {.intValue = offset}});
+                symbol = searchST(&block->symbols, token.stringValue, false);
+                if (symbol)
+                {
+                    errorCode = 3;
+                    fprintf(stderr, "redefinition of symbol %s\n", token.stringValue);
+                    return false;
+                }
+                symbol = insertST(&block->symbols, token.stringValue, (symbol_T){VARIABLE_ST, dataType, 0, false, {.intValue = offset}});
                 //printf("%s %p offset %d\n",token.stringValue, symbol, offset);
                 void *value = NULL;
                 if (getToken(&token))
@@ -783,7 +836,7 @@ bool outListLL(block_T *block)
         void *outputOperand;
         instruction_T newInstruction;
         newInstruction.type = PRINT_I;
-        if (callParameterLL(block, &outputOperand))
+        if (callParameterLL(block, &outputOperand, NULL, NULL))
         {
             newInstruction.destination = NULL;
             newInstruction.source1 = outputOperand;
@@ -809,7 +862,7 @@ bool nextOutListLL(block_T *block)
         instruction_T newInstruction;
         newInstruction.type = PRINT_I;
         if (getToken(&token))
-            if (callParameterLL(block, &outputOperand))
+            if (callParameterLL(block, &outputOperand, NULL, NULL))
             {
                 newInstruction.destination = NULL;
                 newInstruction.source1 = outputOperand;
@@ -838,7 +891,7 @@ bool inListLL(block_T *block)
         // IN_LIST -> id NEXT_IN_LIST
         instruction_T newInstruction;
         newInstruction.type = SCAN_I;
-        symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+        symbol_T *symbol = searchST(&block->symbols, token.stringValue, true);
         if (symbol == NULL)
         {
             errorCode = 3;
@@ -871,7 +924,7 @@ bool nextInListLL(block_T *block)
             {
                 instruction_T newInstruction;
                 newInstruction.type = SCAN_I;
-                symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+                symbol_T *symbol = searchST(&block->symbols, token.stringValue, true);
                 if (symbol == NULL)
                 {
                     errorCode = 3;
@@ -908,7 +961,8 @@ bool rvalLL(block_T *block, void **value)
     //printf("%d\n", token.type);
     if (token.type == ID_TO)
     {
-        if ((function = searchST(&functions, token.stringValue)) != NULL)
+        //printf("search %s\n",  token.stringValue);
+        if ((function = searchST(&functions, token.stringValue, true)) != NULL)
         {
             if (function->defined) 
                 token.type = ID_TO - 1;
@@ -931,7 +985,7 @@ bool rvalLL(block_T *block, void **value)
                 if (errorCode)
                     return false;
                 if (getToken(&token))
-                    if (callParameterListLL(block))
+                    if (callParameterListLL(block, function))
                     {
                         if (token.type == RBRACKET_TO)
                         {
@@ -946,6 +1000,13 @@ bool rvalLL(block_T *block, void **value)
                                 istrType = SUBSTRING_I;
                             if (function->type == FUNCTION_ST + 5)
                                 istrType = FIND_I;
+                            if (((symbol_T *) *value)->dataType != function->dataType)
+                                if (((symbol_T *) *value)->dataType == STRING_TY || function->dataType == STRING_TY)
+                                {
+                                    errorCode = 4;
+                                    fprintf(stderr, "bad conversion return type\n");
+                                    return false;
+                                }
                             insertLastIL(&block->program, (instruction_T) {istrType, function->data, *value, NULL});
                             if (errorCode)
                                 return false;
@@ -971,14 +1032,24 @@ bool rvalLL(block_T *block, void **value)
     return false;
 }
 
-bool callParameterListLL(block_T *block)
+bool callParameterListLL(block_T *block, symbol_T *function)
 {
     if (token.type == ID_TO || token.type == INT_TO || token.type == DOUBLE_TO || token.type == STRING_TO)
     {
         // CALL_PARAMETER_LIST -> CALL_PARAMETER NEXT_CALL_PARAMETER_LIST
-        if (callParameterLL(block, NULL))
-            if (nextCallParameterLL(block))
+        int parameterNumber = 0;
+        if (callParameterLL(block, NULL, &parameterNumber, function))
+            if (nextCallParameterLL(block, &parameterNumber, function))
+            {
+                //printf("%d %p\n", parameterNumber, function->type);
+                if (parameterNumber != function->count)
+                {
+                    errorCode = 4;
+                    fprintf(stderr, "bad count of function(caling)\n");
+                    return false;
+                }
                 return true;
+            }
     }
     else if (token.type == RBRACKET_TO)
     {
@@ -990,14 +1061,14 @@ bool callParameterListLL(block_T *block)
     return false;
 }
 
-bool nextCallParameterLL(block_T *block)
+bool nextCallParameterLL(block_T *block, int *number, symbol_T *function)
 {
     if (token.type == COMMA_TO)
     {
         // NEXT_CALL_PARAMETER_LIST -> , CALL_PARAMETER NEXT_CALL_PARAMETER_LIST
         if (getToken(&token))
-            if (callParameterLL(block, NULL))
-                if (nextCallParameterLL(block))
+            if (callParameterLL(block, NULL, number, function))
+                if (nextCallParameterLL(block, number, function))
                     return true;
     }
     else if (token.type == RBRACKET_TO)
@@ -1010,12 +1081,21 @@ bool nextCallParameterLL(block_T *block)
     return false;
 }
 
-bool callParameterLL(block_T *block, void **value)
+bool callParameterLL(block_T *block, void **value, int *number, symbol_T *function)
 {
+    symbol_T *parameter = NULL;
+    if (token.type >= ID_TO && token.type <= STRING_TO && number && function)
+    {
+        char tempName[10];
+        sprintf(tempName, "$$%d",  *number);
+        (*number)++;
+        parameter = searchST(&((block_T *) function->data)->symbols, tempName, true);
+        //printf("%p\n", parameter);
+    }
     if (token.type == ID_TO)
     {
         // CALL_PARAMETER -> id
-        symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+        symbol_T *symbol = searchST(&block->symbols, token.stringValue, true);
         if (symbol == NULL)
         {
             errorCode = 3;
@@ -1026,6 +1106,12 @@ bool callParameterLL(block_T *block, void **value)
             *value = symbol;
         else
         {
+            if (parameter && parameter->dataType != symbol->dataType && (parameter->dataType == STRING_TY || symbol->dataType == STRING_TY))
+            {
+                errorCode = 4;
+                fprintf(stderr, "bad parameter type\n");
+                return false;
+            }
             insertLastIL(&block->program, (instruction_T) {SET_PARAMETR_I, NULL, symbol, NULL});
             if (errorCode)
                 return false;
@@ -1040,13 +1126,26 @@ bool callParameterLL(block_T *block, void **value)
         newConstant->type = CONST_ST;
         newConstant->dataType = token.type;
         newConstant->defined = true;
+        //printf("%p\n", newConstant);
+        if (parameter && parameter->dataType != token.type && (parameter->dataType == STRING_TY || token.type == STRING_TY))
+        {
+            errorCode = 4;
+            fprintf(stderr, "bad parameter type\n");
+            return false;
+        }
         switch (token.type)
         {
             case INT_TO:
-                newConstant->intValue = token.intValue;
+                if (!parameter || parameter->dataType == INT_TY)
+                    newConstant->intValue = token.intValue;
+                else
+                    newConstant->doubleValue = (double) token.intValue;
                 break;
             case DOUBLE_TO:
-                newConstant->doubleValue = token.doubleValue;
+                if (!parameter || parameter->dataType == DOUBLE_TY)
+                    newConstant->doubleValue = token.doubleValue;
+                else
+                    newConstant->intValue = (int) token.doubleValue;
                 break;
             case STRING_TO:
                 newConstant->stringValue = allocString(token.stringValue, 0);
@@ -1131,7 +1230,7 @@ bool expression(block_T *block, void **value)
             {
                 if (token.type == ID_TO)
                 {
-                    symbol_T *symbol = searchST(&block->symbols, token.stringValue);
+                    symbol_T *symbol = searchST(&block->symbols, token.stringValue, true);
                     if (symbol == NULL)
                     {
                         errorCode = 3;
@@ -1223,7 +1322,7 @@ bool expression(block_T *block, void **value)
                                 return false;
                             }   
                         }
-                        symbol_T *tempSymbol = insertST(&block->symbols, tempName, (symbol_T){VARIABLE_ST, type, true, {.intValue = offset}});
+                        symbol_T *tempSymbol = insertST(&block->symbols, tempName, (symbol_T){VARIABLE_ST, type, 0, true, {.intValue = offset}});
                         //printf("TMP %d\n", offset);
                         //printf("%s %d\n", tempName, type);
                         newInstruction.source1 = source1;

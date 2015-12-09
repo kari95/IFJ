@@ -137,7 +137,8 @@ void destroyST(symbolTable_T *table)
 
 // search in 'table' by the 'key'
 // return data of table item 
-symbol_T *searchST(symbolTable_T *table, char *key)
+// recursive means that symbol will be search in parrent tables
+symbol_T *searchST(symbolTable_T *table, char *key, bool recursive)
 {
     int hash = hashFunction(key);
     for (symbolTableItem_T *item = table->items[hash]; item != NULL; item = item->next)
@@ -145,10 +146,10 @@ symbol_T *searchST(symbolTable_T *table, char *key)
         if (strcmp(key, item->key) == 0)
             return &item->data;
     }
-    if (table->parrent) 
+    if (table->parrent && recursive) 
     {
         // search in parrent table
-        return searchST(table->parrent, key);
+        return searchST(table->parrent, key, true);
     }
     return NULL;
 }
@@ -159,16 +160,10 @@ symbol_T *searchST(symbolTable_T *table, char *key)
 symbol_T *insertST(symbolTable_T *table, char *key, symbol_T data)
 {
     int hash = hashFunction(key);
-    symbol_T *itemData = NULL;
-    for (symbolTableItem_T *item = table->items[hash]; item != NULL; item = item->next)
-    {
-        if (strcmp(key, item->key) == 0)
-            itemData = &item->data;
-    }
-    symbolTableItem_T *item = NULL;
+    symbol_T *itemData = searchST(table, key, false);
     if (itemData == NULL)
     {
-        item = malloc(sizeof(symbolTableItem_T) + strlen(key) + 1);
+        symbolTableItem_T *item = malloc(sizeof(symbolTableItem_T) + strlen(key) + 1);
         if (item == NULL) 
             return NULL;
         strcpy(item->key, key);
@@ -176,9 +171,10 @@ symbol_T *insertST(symbolTable_T *table, char *key, symbol_T data)
         item->next = table->items[hash];
         table->items[hash] = item;
         table->count++;
+        itemData = &item->data;
     }
     else
         *itemData = data;
-    return &item->data;
+    return itemData;
 }
 
