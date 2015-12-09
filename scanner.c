@@ -15,7 +15,6 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <string.h>
 #include "scanner.h"
 #include "string.h"
 
@@ -61,7 +60,8 @@ GE_S
 FILE *inputFile;
 unsigned int global_column = 1;
 unsigned int global_row = 1;
-string_T string, hexadecimal_string;
+unsigned int local_column = 0;
+string_T string, hexadecimal_string, integer_string;
 int state = BEGIN_S;
 int first = 0;
 int second = 0;
@@ -72,6 +72,7 @@ void initSC(FILE *programFile)
     inputFile = programFile;
     initS(&string);
     initS(&hexadecimal_string);
+    initS(&integer_string);
 }
 
 void tokenInitialisation(token_T *token, tokenType_T type_of_token)
@@ -109,7 +110,6 @@ int getTokenSC(token_T *token)
 bool error = false ; // if smth goes wrong I should return error = 1 if it's bug of lexeme structure
 bool string_test = false;
 bool first_char = false;
-int local_column;
 tokenType_T type_of_token;
 int sign, hexa;
 cleanS (&string);
@@ -256,6 +256,8 @@ if (sign == EOF)  /*end of file   */
 		 		state = BEGIN_S;
 		 		global_column++;
 		 	}
+            else
+                return 1;
 			
 	  break;
 	/***************************************************** end of BEGIN_S	*****************************************************/
@@ -502,13 +504,27 @@ if (sign == EOF)  /*end of file   */
     else 
     {
     	int val_int = 0;
+        char str[1000] = "00000";
+
     	val_int = atoi(string.data);
-    	type_of_token = INT_TO;
-    	token->intValue = val_int;
-    	tokenInitialisation (token, type_of_token);
-    	ungetc(sign, inputFile);
-    	state = BEGIN_S;
-    	return 0;
+        
+        sprintf(str, "%d", val_int);
+        
+        if (strcmp(str, string.data) == 0)
+        {
+        type_of_token = INT_TO;
+        token->intValue = val_int;
+        tokenInitialisation (token, type_of_token);
+        ungetc(sign, inputFile);
+        state = BEGIN_S;
+        return 0;
+       }
+        else
+        {
+           
+            return 1;
+        }
+
     }
 
     first_char = false;
@@ -521,6 +537,11 @@ if (sign == EOF)  /*end of file   */
 		addCharacterS(&string, sign);
     	state = DOUBLE_S;
     	global_column++;
+    }
+    else if (sign == ".")
+    {
+        return 1;
+        break;
     }
     else //anything else than number 
     {
@@ -570,7 +591,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
    	}
    	else
-   		error = true;
+   	{
+        ungetc(sign, inputFile);
+        type_of_token = DIV_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     
     break;
 
@@ -660,7 +687,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-    	error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = NE_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
 
@@ -689,7 +722,6 @@ if (sign == EOF)  /*end of file   */
     }
    else if (sign == '\n')
     {
-
         end_of_row ();
         type_of_token = ASSIGN_TO;
         blank (token, type_of_token);
@@ -697,7 +729,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else // if other operator 
-    	error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = ASSIGN_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
     
 
@@ -727,7 +765,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-        error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = E_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
 	break;
 
 
@@ -768,7 +812,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-    	error = true;
+     {
+        ungetc(sign, inputFile);
+        type_of_token = L_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
 
     break;
 
@@ -797,8 +847,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-
-        error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = LE_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
     case OUT_S:         // << 
@@ -826,7 +881,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-        error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = OUT_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
 
@@ -867,7 +928,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-    	error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = G_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
 
@@ -896,7 +963,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-        error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = IN_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
     
@@ -925,7 +998,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-        error = true;
+    {
+        ungetc(sign, inputFile);
+        type_of_token = GE_TO;
+        blank (token, type_of_token);
+        state = BEGIN_S;
+        return 0;
+    }
     break;
 
 
