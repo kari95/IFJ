@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include "parser.h"
 #include "instlist.h"
+#include "ial.h"
 #include "interpret.h"
 
 int main(int argc, char const **argv)
@@ -52,6 +53,12 @@ int main(int argc, char const **argv)
     // interpret code
     if (errorCode == 0)
         errorCode = interpret(&mainBlock);
+
+    // free allocations
+    freeParser();
+    freeInterpret();
+    destroyST(&mainBlock.symbols);
+    destroyIL(&mainBlock.program);
 
     // closing program file
     if (fclose(programFile) == EOF)

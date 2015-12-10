@@ -28,4 +28,7 @@ typedef struct block {
 // parse 'programFile' an generate list of instructions 'program'
 int parse(FILE *programFile, block_T *block);
 
+// parse 'programFile' an generate list of instructions 'program'
+void freeParser();
+
 #endif

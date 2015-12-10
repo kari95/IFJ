@@ -75,6 +75,9 @@ typedef struct {
 // init scanner an set 'programFile' as input file
 void initSC(FILE *programFile);
 
+// free allocated memory
+void freeSC();
+
 // read token to structure 'token'
 // return zero if success
 int getTokenSC(token_T *token);

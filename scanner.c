@@ -74,6 +74,12 @@ void initSC(FILE *programFile)
     initS(&hexadecimal_string);
 }
 
+// free allocated memory
+void freeSC()
+{
+    destroyS(&string);
+}
+
 void tokenInitialisation(token_T *token, tokenType_T type_of_token)
 {
 token->type = type_of_token;	

@@ -35,12 +35,19 @@ static symbolTable_T functions;
 static token_T token;
 static int errorCode = 0;
 
+// alocated memory
+static pointerStack_T blocks;
+static pointerStack_T symbols;
 
 block_T *allocBlock(block_T *block)
 {
     if (!block)
     {
         block = malloc(sizeof(block_T));
+        if (!block)
+            errorCode = 99;
+        else
+            pushPS(&blocks, block);
     }
     if (block)
     {
@@ -48,8 +55,6 @@ block_T *allocBlock(block_T *block)
         initST(&block->symbols);
         initIL(&block->program);
     }
-    else
-        errorCode = 99;
     return block;
 }
 
@@ -58,6 +63,8 @@ symbol_T *allocSymbol()
     symbol_T *newSymbol = malloc(sizeof(symbol_T));
     if (!newSymbol)
         errorCode = 99;
+    else
+        pushPS(&symbols, newSymbol);
     return newSymbol;
 }
 // stack for constants
@@ -139,6 +146,7 @@ void insertBuildIn(symbol_T *function)
 int parse(FILE *programFile, block_T *block)
 {
     initST(&functions);     // initialization of global symbol table
+    initPS(&blocks); 
     initSC(programFile);    // initialiration of scanner 
 
     allocBlock(block);
@@ -155,7 +163,32 @@ int parse(FILE *programFile, block_T *block)
                 errorCode = 3;
         
     // !destruction
+    freeSC();
     return errorCode;
+}
+
+// parse 'programFile' an generate list of instructions 'program'
+void freeParser()
+{
+    destroyST(&functions);
+    // destroy blocks
+    block_T *block;
+    while ((block = topPS(&blocks)) != NULL)
+    {
+        destroyST(&block->symbols);
+        destroyIL(&block->program);
+        free(block);
+        popPS(&blocks);
+    }
+    destroyPS(&blocks); 
+    // destroy symbols
+    void *symbol;
+    while ((symbol = topPS(&symbols)) != NULL)
+    {
+        free(symbol);
+        popPS(&symbols);
+    }
+    destroyPS(&symbols); 
 }
 
 // implementation of rules
@@ -1149,6 +1182,7 @@ bool callParameterLL(block_T *block, void **value, int *number, symbol_T *functi
                 break;
             case STRING_TO:
                 newConstant->stringValue = allocString(token.stringValue, 0);
+                pushPS(&symbols, newConstant->stringValue);
                 break;
             default:
                 break;
@@ -1255,6 +1289,7 @@ bool expression(block_T *block, void **value)
                             break;
                         case STRING_TO:
                             newConstant->stringValue = allocString(token.stringValue, 0);
+                            pushPS(&symbols, newConstant->stringValue);
                             break;
                         default:
                             break;

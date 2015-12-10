@@ -27,6 +27,14 @@ typedef union {
     char *stringValue;
 } frame_T;
 
+static pointerStack_T frameStack;
+static pointerStack_T blockStack;
+static pointerStack_T callBlockStack;
+static pointerStack_T instructionStack;
+static pointerStack_T returnAddressStack;
+
+static pointerStack_T stringStack;
+
 frame_T *allocFrame(block_T *block)
 {
     unsigned int size = block->symbols.count;
@@ -39,13 +47,25 @@ frame_T *allocFrame(block_T *block)
     return frame;
 }
 
+void freeInterpret()
+{
+    destroyPS(&frameStack);
+    destroyPS(&blockStack);
+    destroyPS(&callBlockStack);
+    destroyPS(&instructionStack);
+    destroyPS(&returnAddressStack);
+    // destroy strings
+    void *string;
+    while ((string = topPS(&stringStack)) != NULL)
+    {
+        free(string);
+        popPS(&stringStack);
+    }
+    destroyPS(&stringStack); 
+}
+
 int interpret(block_T *b)
 {
-    pointerStack_T frameStack;
-    pointerStack_T blockStack;
-    pointerStack_T callBlockStack;
-    pointerStack_T instructionStack;
-    pointerStack_T returnAddressStack;
     initPS(&frameStack);
     initPS(&blockStack);
     initPS(&callBlockStack);
@@ -148,6 +168,7 @@ int interpret(block_T *b)
                 char *string = frame[0].stringValue;
                 int size = strlen(string);
                 oldFrame[returnIndex].stringValue = allocString("", count);
+                pushPS(&stringStack, oldFrame[returnIndex].stringValue);
                 if (index + count <= size)
                 {
                     memcpy(oldFrame[returnIndex].stringValue, &frame[0].stringValue[index], count );
@@ -191,6 +212,7 @@ int interpret(block_T *b)
                 //fprintf(stderr,"sort %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, 0);
+                pushPS(&stringStack, oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 sort(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 free(frame);
                 frame = oldFrame;
@@ -203,6 +225,7 @@ int interpret(block_T *b)
                 frame_T *oldFrame = topPS(&frameStack);
                 int size = strlen(frame[1].stringValue);
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, size);
+                pushPS(&stringStack, oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 strcat(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue, frame[1].stringValue);
                 free(frame);
                 frame = oldFrame;
@@ -239,6 +262,7 @@ int interpret(block_T *b)
                             oldFrame[returnAddress->intValue].stringValue = allocString(frame[((symbol_T *)instruction->source1)->intValue].stringValue, 0);
                         else
                             oldFrame[returnAddress->intValue].stringValue = allocString(((symbol_T *)instruction->source1)->stringValue, 0);
+                        pushPS(&stringStack, oldFrame[returnAddress->intValue].stringValue);
                     }
                     else if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
                     {
@@ -589,6 +613,7 @@ int interpret(block_T *b)
                 else
                 {
                     destination->stringValue = allocString(source1->stringValue, 0);
+                    pushPS(&stringStack, destination->stringValue);
                 }
                 break;
             }

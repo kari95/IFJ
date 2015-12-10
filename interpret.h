@@ -19,4 +19,6 @@
 
 int interpret(block_T *block);
 
+void freeInterpret();
+
 #endif
