@@ -22,8 +22,8 @@ OBJ = parser.o interpret.o scanner.o instlist.o pointerstack.o string.o ial.o
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # link
-ifj15: $(OBJ)
-	$(CC) main.c $(CFLAGS) $? -o $@
+ifj15: main.c $(OBJ)
+	$(CC) $(CFLAGS) $? -o $@
 # test
 test: test.c $(OBJ)
 	$(CC) $(CFLAGS) $? -o $@
