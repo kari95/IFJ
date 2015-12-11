@@ -76,10 +76,13 @@ void initSC(FILE *programFile)
 }
 
 // free allocated memory
+
 void freeSC()
 {
     destroyS(&string);
 }
+
+
 
 void tokenInitialisation(token_T *token, tokenType_T type_of_token)
 {
@@ -116,6 +119,7 @@ int getTokenSC(token_T *token)
 bool error = false ; // if smth goes wrong I should return error = 1 if it's bug of lexeme structure
 bool string_test = false;
 bool first_char = false;
+bool first_exponent = false;
 tokenType_T type_of_token;
 int sign, hexa;
 cleanS (&string);
@@ -134,6 +138,7 @@ if (sign == EOF)  /*end of file   */
   switch (state)
   {
 	  case BEGIN_S:    //begining state of automata
+      first_exponent = false;
         	if (sign == '=') //could be assign = or equal ==
 		 	{
 		 		state = ASSIGN_OR_EQUAL_S;
@@ -495,11 +500,18 @@ if (sign == EOF)  /*end of file   */
     local_column = global_column;
     global_column++;
     }
-    if (sign == '.' || sign == 'e' || sign == 'E')
+    if (sign == 'e' || sign == 'E')
     {
+        first_exponent = true;
     	addCharacterS(&string, sign);
     	state = DOUBLE_S;
     	global_column++;
+    }
+    else if (sign == '.' )
+    {
+        addCharacterS(&string, sign);
+        state = DOUBLE_S;
+        global_column++;
     }
     else if (isdigit(sign))
     {
@@ -549,6 +561,35 @@ if (sign == EOF)  /*end of file   */
         return 1;
         break;
     }
+    else if (sign == '-' || sign == '+')
+    {
+        if (first_exponent)
+        {
+        addCharacterS(&string, sign);
+        state = DOUBLE_S;
+        global_column++;
+        }
+        else
+        {
+            return 1;
+            break;
+        }
+    }
+    else if (sign == 'e' || sign == 'E')
+    {
+        if (!first_exponent)
+        {
+        first_exponent = true;
+        addCharacterS(&string, sign);
+        state = DOUBLE_S;
+        global_column++;
+        }
+        else
+        {
+            return 1;
+            break;
+        }
+    }
     else //anything else than number 
     {
     	double val_double = 0;
@@ -560,6 +601,7 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
     	return 0;
     }
+
     break;
 
 
