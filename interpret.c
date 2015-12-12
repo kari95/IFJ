@@ -164,9 +164,17 @@ int interpret(block_T *b)
                 //fprintf(stderr,"serparam %p %p %p\n", instruction->destination, instruction->source1, instruction->source2);
                 frame_T *oldFrame = topPS(&frameStack);
                 if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
+                {
                     frame[paramaterCounter] = oldFrame[(int) ((symbol_T *)instruction->source1)->data];
+                    if (!oldFrame[(int) ((symbol_T *)instruction->source1)->data].defined)
+                    {
+                        fprintf(stderr, "non inicialized variable in function parameter\n");
+                        return 8;
+                    }
+                }
                 else
                     frame[paramaterCounter].doubleValue = ((symbol_T *)instruction->source1)->doubleValue; 
+                frame[paramaterCounter].defined = true;
                 paramaterCounter++;
                 break;
             }
