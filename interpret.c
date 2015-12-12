@@ -21,10 +21,13 @@
 #include "ial.h"
 #include "interpret.h"
 
-typedef union {
-    int intValue;
-    double doubleValue;
-    char *stringValue;
+typedef struct {
+    union {
+        int intValue;
+        double doubleValue;
+        char *stringValue;
+    };
+    bool defined;
 } frame_T;
 
 static pointerStack_T frameStack;
@@ -43,6 +46,7 @@ frame_T *allocFrame(block_T *block)
     for (unsigned int i = 0; i < size; ++i)
     {
         frame[i].intValue = 0;
+        frame[i].defined = false;
     }
     return frame;
 }
@@ -111,11 +115,19 @@ int interpret(block_T *b)
             {
                 destination = &frame[(int) ((symbol_T *)instruction->destination)->data];
                 destinationType = ((symbol_T *)instruction->destination)->dataType;
+                destination->defined = true;
             }
             if (instruction->type != SCAN_I)
             {
                 if (((symbol_T *)instruction->source1)->type == VARIABLE_ST)
+                {
                     source1 = &frame[(int) ((symbol_T *)instruction->source1)->data];
+                    if (!source1->defined)
+                    {
+                        fprintf(stderr, "non inicialized variable\n");
+                        return 8;
+                    }
+                }
                 else
                     source1 = (frame_T *)&((symbol_T *)instruction->source1)->data;
                 source1Type = ((symbol_T *)instruction->source1)->dataType;
@@ -123,18 +135,18 @@ int interpret(block_T *b)
             if (instruction->type != ASSIGN_I && instruction->type != PRINT_I && instruction->type != SCAN_I)
             {
                 if (((symbol_T *)instruction->source2)->type == VARIABLE_ST)
+                {
                     source2 = &frame[(int) ((symbol_T *)instruction->source2)->data];
+                    if (!source2->defined)
+                    {
+                        fprintf(stderr, "non inicialized variable\n");
+                        return 8;
+                    }
+                }
                 else
                     source2 = (frame_T *)&((symbol_T *)instruction->source2)->data;
                 source2Type = ((symbol_T *)instruction->source2)->dataType;
             }
-            //if (instruction->type >= G_I && instruction->type <= NEQ_I)
-            /*if (instruction->type == PRINT_I || instruction->type == ASSIGN_I)
-            {
-                //fprintf(stderr,"%d\n", ((symbol_T *)instruction->source1)->type);
-                //printf("%d\n", ((symbol_T *)instruction->source1)->dataType);
-                printf("index %d\n", ((symbol_T *)instruction->source1)->intValue);
-            }*/
         }
         //printf("I: %d\n", instruction->type);
         switch (instruction->type)
@@ -173,6 +185,7 @@ int interpret(block_T *b)
                 {
                     memcpy(oldFrame[returnIndex].stringValue, &frame[0].stringValue[index], count );
                     oldFrame[returnIndex].stringValue[count] = '\0';
+                    oldFrame[returnIndex].defined = true;
                 }
                 else
                     fprintf(stderr, "substr out of range\n");
@@ -189,6 +202,7 @@ int interpret(block_T *b)
                     oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = strlen(frame[0].stringValue);
                 else
                     oldFrame[((symbol_T *) instruction->source1)->intValue].doubleValue = (double) strlen(frame[0].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].defined = true;
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
@@ -202,6 +216,7 @@ int interpret(block_T *b)
                     oldFrame[((symbol_T *) instruction->source1)->intValue].intValue = find(frame[0].stringValue, frame[1].stringValue);
                 else
                     oldFrame[((symbol_T *) instruction->source1)->intValue].doubleValue = (double) find(frame[0].stringValue, frame[1].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].defined = true;
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
@@ -214,6 +229,7 @@ int interpret(block_T *b)
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, 0);
                 pushPS(&stringStack, oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 sort(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].defined = true;
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
@@ -227,6 +243,7 @@ int interpret(block_T *b)
                 oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue = allocString(frame[0].stringValue, size);
                 pushPS(&stringStack, oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue);
                 strcat(oldFrame[((symbol_T *) instruction->source1)->intValue].stringValue, frame[1].stringValue);
+                oldFrame[((symbol_T *) instruction->source1)->intValue].defined = true;
                 free(frame);
                 frame = oldFrame;
                 popPS(&frameStack);
@@ -282,6 +299,7 @@ int interpret(block_T *b)
                         else if (returnAddress->dataType == DOUBLE_TY)
                             oldFrame[returnAddress->intValue].doubleValue = (double) ((symbol_T *)instruction->source1)->intValue;
                     }
+                    oldFrame[returnAddress->intValue].defined = true;
                     free(frame);
                     frame = oldFrame;
                     popPS(&frameStack);
