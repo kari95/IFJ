@@ -54,7 +54,8 @@ LE_S,
 IN_S,
 OUT_S,
 G_GE_IN_S,
-GE_S
+GE_S,
+EXP_S
 };
 
 FILE *inputFile;
@@ -120,8 +121,9 @@ bool error = false ; // if smth goes wrong I should return error = 1 if it's bug
 bool string_test = false;
 bool first_char = false;
 bool first_exponent = false;
+bool first_number = false;
 tokenType_T type_of_token;
-int sign, hexa;
+int sign;
 cleanS (&string);
 
 
@@ -138,6 +140,7 @@ if (sign == EOF)  /*end of file   */
   switch (state)
   {
 	  case BEGIN_S:    //begining state of automata
+      first_number = false;
       first_exponent = false;
         	if (sign == '=') //could be assign = or equal ==
 		 	{
@@ -242,6 +245,7 @@ if (sign == EOF)  /*end of file   */
 		 	{	
 		 		end_of_row ();
                 state = BEGIN_S;
+                break;
 		 	}
 		 
 		 	else if (sign == '_')
@@ -249,18 +253,21 @@ if (sign == EOF)  /*end of file   */
 		 		first_char = true;
 		 		state = ID_S; 	
 		 		addCharacterS (&string, sign);	/*  begining of identificator*/
-			}
+			    break;
+            }
 		 	else if (isalpha(sign))
 		 	{
 		 		first_char = true;
 		 		state = ID_S;
 		 		addCharacterS (&string, sign);
+                break;
 		 	}
 		 	else if (isdigit(sign))
 		 	{
 		 		first_char = true;
 		 		state = NUMBER_S;
 		 		addCharacterS (&string, sign);
+                break;
 		 	}
 		 	else if (isblank(sign))
 		 	{
@@ -363,7 +370,6 @@ if (sign == EOF)  /*end of file   */
 	}
 
 	first_char = false;
-
 	break;	
 
    
@@ -451,7 +457,6 @@ if (sign == EOF)  /*end of file   */
     global_column++;
     state = STRING_S;
     cleanS (&hexadecimal_string);
-	hexa = 0;
     break;
 
     case HEXADECIMAL_SECOND_S:
@@ -464,7 +469,6 @@ if (sign == EOF)  /*end of file   */
 
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
-		hexa = 0;
     }
     else if (sign >= 'a' && sign <= 'f')
     {
@@ -473,7 +477,6 @@ if (sign == EOF)  /*end of file   */
   
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
-		hexa = 0;
     }
 
     else if (isdigit(sign))
@@ -483,14 +486,11 @@ if (sign == EOF)  /*end of file   */
 
     	addCharacterS(&string, second);
     	cleanS (&hexadecimal_string);
-		hexa = 0;
     }
     else
     	error = 1;
     state = STRING_S;
     cleanS (&hexadecimal_string);
-	hexa = 0;
-
     break;
 
 
@@ -502,10 +502,10 @@ if (sign == EOF)  /*end of file   */
     }
     if (sign == 'e' || sign == 'E')
     {
-        first_exponent = true;
     	addCharacterS(&string, sign);
-    	state = DOUBLE_S;
+    	state = EXP_S;
     	global_column++;
+        first_exponent = true;
     }
     else if (sign == '.' )
     {
@@ -523,9 +523,7 @@ if (sign == EOF)  /*end of file   */
     {
     	int val_int = 0;
         char str[1000] = "00000";
-
     	val_int = atoi(string.data);
-        
         sprintf(str, "%d", val_int);
         
         if (strcmp(str, string.data) == 0)
@@ -536,18 +534,14 @@ if (sign == EOF)  /*end of file   */
         ungetc(sign, inputFile);
         state = BEGIN_S;
         return 0;
-       }
+        }
         else
         {
-           
             return 1;
         }
-
     }
-
     first_char = false;
     break;
-
 
     case DOUBLE_S:      // x.xxx for double numbers
     if (isdigit(sign))
@@ -561,7 +555,7 @@ if (sign == EOF)  /*end of file   */
         return 1;
         break;
     }
-    else if (sign == '-' || sign == '+')
+  /*  else if (sign == '-' || sign == '+')
     {
         if (first_exponent)
         {
@@ -574,21 +568,13 @@ if (sign == EOF)  /*end of file   */
             return 1;
             break;
         }
-    }
+    }*/
     else if (sign == 'e' || sign == 'E')
     {
-        if (!first_exponent)
-        {
-        first_exponent = true;
         addCharacterS(&string, sign);
-        state = DOUBLE_S;
+        state = EXP_S;
         global_column++;
-        }
-        else
-        {
-            return 1;
-            break;
-        }
+        first_exponent = true;
     }
     else //anything else than number 
     {
@@ -601,9 +587,66 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
     	return 0;
     }
-
     break;
 
+    case EXP_S:
+    if (isdigit(sign))
+    {
+        first_number = true;
+        addCharacterS(&string, sign);
+        state = EXP_S;
+        global_column++;
+    }
+    else if (sign == ".")
+    {
+        return 1;
+        break;
+    }
+    else if (sign == '-' || sign == '+')
+    {
+        if (first_number)
+        {
+        double val_double = 0;
+        val_double = atof(string.data);
+        type_of_token = DOUBLE_TO;
+        token->doubleValue = val_double;
+        tokenInitialisation (token, type_of_token);
+        ungetc(sign, inputFile);
+        state = BEGIN_S;
+        return 0;
+        }
+
+        if (first_exponent)
+        {
+        addCharacterS(&string, sign);
+        state = EXP_S;
+        global_column++;
+        first_exponent = false;
+        break;
+        }
+        else
+        {
+            return 1;
+            break;
+        }
+    }
+    else
+    {
+        if (!first_number)
+        {
+            return 1;
+            break;
+        }
+        double val_double = 0;
+        val_double = atof(string.data);
+        type_of_token = DOUBLE_TO;
+        token->doubleValue = val_double;
+        tokenInitialisation (token, type_of_token);
+        ungetc(sign, inputFile);
+        state = BEGIN_S;
+        return 0;
+    }
+    break;
 
     case DIV_S:         // /
     if (sign == '/')
@@ -622,7 +665,7 @@ if (sign == EOF)  /*end of file   */
 		state = BEGIN_S;
 		return 0;
     }
-    else if (isblank(sign) || sign == '"' || sign == EOF)
+    else if (isblank(sign) || sign == '"')
     {
         ungetc(sign, inputFile);
     	type_of_token = DIV_TO;
@@ -646,7 +689,6 @@ if (sign == EOF)  /*end of file   */
         state = BEGIN_S;
         return 0;
     }
-    
     break;
 
     case ROW_COMMENT_S: // coment begining with //
@@ -788,7 +830,6 @@ if (sign == EOF)  /*end of file   */
     
 
     case EQUAL_S: // =  if it's assign
-  
     if (isalnum (sign))
     {
     	type_of_token = E_TO;
@@ -843,7 +884,7 @@ if (sign == EOF)  /*end of file   */
     	state = BEGIN_S;
         return 0;
     }
-    else if (isblank(sign) || sign == '"' || sign == EOF)
+    else if (isblank(sign) || sign == '"')
     {	
         ungetc(sign, inputFile);
     	type_of_token = L_TO;
@@ -860,14 +901,13 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     else
-     {
+    {
         ungetc(sign, inputFile);
         type_of_token = L_TO;
         blank (token, type_of_token);
         state = BEGIN_S;
         return 0;
     }
-
     break;
 
 	case LE_S:          // <=
@@ -984,7 +1024,6 @@ if (sign == EOF)  /*end of file   */
         return 0;
     }
     break;
-
 
 	case IN_S:          // >>
 	if (isalnum (sign))
